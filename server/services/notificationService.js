@@ -1,0 +1,218 @@
+const axios = require('axios');
+const { EmbedBuilder } = require('discord.js'); // Only EmbedBuilder is needed from discord.js for webhooks
+const TelegramBot = require('node-telegram-bot-api');
+
+// Helper to get field value, supporting dot notation for nested properties (simple version)
+function getFieldValue(item, fieldName) {
+    if (!fieldName) return '';
+    // Basic protection against prototype pollution, though less critical for read-only access
+    if (fieldName === '__proto__' || fieldName === 'constructor' || fieldName === 'prototype') {
+        return '';
+    }
+    // Handle cases where item might be null or undefined, or path is invalid
+    try {
+        return fieldName.split('.').reduce((o, k) => (o || {})[k], item) || '';
+    } catch (e) {
+        return '';
+    }
+}
+
+async function sendDiscordNotification(webhookUrl, feedTitleFromFeedObject, item, selectedFields, feedOriginalUrl, showAllPrefixesFlag) {
+    if (!webhookUrl) {
+        console.warn('Discord webhook URL not provided.');
+        return;
+    }
+
+    // Determine actual title and link based on selectedFields
+    let itemTitle = '';
+    let itemLink = null;
+    if (selectedFields.includes('title')) {
+        itemTitle = String(getFieldValue(item, 'title') || 'New RSS Item').substring(0, 250);
+    }
+    if (selectedFields.includes('link')) {
+        itemLink = getFieldValue(item, 'link');
+    }
+
+    const embed = new EmbedBuilder()
+        .setColor(0x0099FF)
+        .setAuthor({ name: String(feedTitleFromFeedObject).substring(0, 250) })
+        .setTimestamp(item.isoDate ? new Date(item.isoDate) : new Date()) // Keep timestamp logic
+        .setFooter({ text: 'Simple RSS Monitor' });
+
+    if (itemTitle) {
+        embed.setTitle(itemTitle);
+        if (itemLink) {
+            embed.setURL(itemLink);
+        }
+    } else if (itemLink) { // If no title but link is selected, Discord uses the URL as title
+        embed.setTitle(itemLink.substring(0,250));
+        embed.setURL(itemLink);
+    }
+
+    let description = '';
+    const noPrefixFields = ['title', 'link', 'contentSnippet', 'content', 'summary', 'description', 'summary_text', 'content_text', 'description_text'];
+
+    selectedFields.forEach(fieldKey => {
+        if (fieldKey === 'title' || fieldKey === 'link') return; // Already handled by embed title/URL
+
+        const rawValue = getFieldValue(item, fieldKey);
+        const value = String(rawValue);
+
+        if (value) { // Only add if there's a value
+            const isOriginallyContentField = noPrefixFields.includes(fieldKey);
+
+            if (showAllPrefixesFlag) { // Toggle ON: All fields get a prefix
+                let fieldName = fieldKey.charAt(0).toUpperCase() + fieldKey.slice(1);
+                if (fieldKey === 'pubDate' || fieldKey === 'isoDate') {
+                    // Special handling for pubDate/isoDate prefix and value
+                    if ( (fieldKey === 'isoDate' && !item.isoDate) || 
+                         (fieldKey === 'pubDate' && !item.isoDate) || 
+                         (fieldKey === 'pubDate' && item.isoDate && getFieldValue(item, 'pubDate') !== getFieldValue(item, 'isoDate')) ) {
+                        description += `**${fieldName}:** ${new Date(value).toLocaleString()}\n`;
+                    }
+                } else {
+                    // Standard prefix for other fields
+                    description += `**${fieldName}:** ${value.substring(0, isOriginallyContentField ? 2000 : 200)}${value.length > (isOriginallyContentField ? 2000 : 200) ? '...' : ''}\n`;
+                }
+            } else { // Toggle OFF: No fields get a prefix, just their value
+                // pubDate/isoDate are only shown if not the main timestamp, and without prefix here
+                if (fieldKey === 'pubDate' || fieldKey === 'isoDate') {
+                    if ( (fieldKey === 'isoDate' && !item.isoDate) || 
+                         (fieldKey === 'pubDate' && !item.isoDate) || 
+                         (fieldKey === 'pubDate' && item.isoDate && getFieldValue(item, 'pubDate') !== getFieldValue(item, 'isoDate')) ) {
+                        description += `${new Date(value).toLocaleString()}\n`;
+                    }
+                } else {
+                    // Value without prefix. Length depends on if it was originally a content field.
+                    description += `${value.substring(0, isOriginallyContentField ? 2000 : 200)}${value.length > (isOriginallyContentField ? 2000 : 200) ? '...' : ''}\n`;
+                }
+            }
+        }
+    });
+    
+    if (description.trim()) {
+        embed.setDescription(description.trim().substring(0, 4000)); 
+    }
+    
+    try {
+        await axios.post(webhookUrl, {
+            // username: "RSS Bot", // Optional: customize bot name
+            // avatar_url: "your_avatar_url.png", // Optional: customize bot avatar
+            embeds: [embed.toJSON()],
+        });
+        console.log(`Sent Discord notification for "${itemTitle || 'an item'}" from "${feedTitleFromFeedObject}"`);
+    } catch (error) {
+        console.error('Error sending Discord notification:', error.response ? JSON.stringify(error.response.data) : error.message);
+    }
+}
+
+async function sendTelegramNotification(botToken, chatId, feedTitleFromFeedObject, item, selectedFields, feedUrl, showAllPrefixesFlag) {
+    if (!botToken || !chatId) {
+        console.warn('Telegram bot token or chat ID not provided.');
+        return;
+    }
+
+    const bot = new TelegramBot(botToken);
+
+    // Feed Title (always included by default, bolded)
+    let message = `*${feedTitleFromFeedObject.replace(/[_*[\]()~`>#+=|{}.!\-]/g, '\\$&')}*\n`;
+
+    // Determine Item Title and Link based on selectedFields
+    let itemTitle = '';
+    let itemLink = '';
+    if (selectedFields.includes('title')) {
+        itemTitle = String(getFieldValue(item, 'title') || 'New RSS Item');
+    }
+    if (selectedFields.includes('link')) {
+        itemLink = getFieldValue(item, 'link');
+    }
+
+    if (itemTitle) {
+        const escapedTgTitle = itemTitle.replace(/[[\]()]/g, '\\\\$&');
+        if (itemLink) {
+            const escapedTgLink = itemLink.replace(/[()]/g, '\\\\$&');
+            message += `[${escapedTgTitle}](${escapedTgLink})\n\n`;
+        } else {
+            message += `${escapedTgTitle}\n\n`; 
+        }
+    } else if (itemLink) { // Link selected but not title
+        const escapedTgLink = itemLink.replace(/[()]/g, '\\\\$&');
+        message += `[${escapedTgLink}](${escapedTgLink})\n\n`;
+    }
+
+    const noPrefixFieldsTg = ['title', 'link', 'contentSnippet', 'content', 'summary', 'description', 'summary_text', 'content_text', 'description_text'];
+
+    // Process other selected fields
+    selectedFields.forEach(fieldKey => {
+        if (fieldKey === 'title' || fieldKey === 'link') return; // Handled above by main title/link
+
+        const rawValue = getFieldValue(item, fieldKey);
+        const value = String(rawValue);
+
+        if (value) { // Only add if there's a value
+            const isOriginallyContentFieldTg = noPrefixFieldsTg.includes(fieldKey);
+
+            if (showAllPrefixesFlag) { // Toggle ON: All fields get a prefix
+                let fieldName = fieldKey.charAt(0).toUpperCase() + fieldKey.slice(1);
+                const escapedFieldName = fieldName.replace(/[_*[\]()~`>#+=|{}.!\-]/g, '\\$&');
+                let valToDisplay = value.substring(0, isOriginallyContentFieldTg ? 2000 : 200);
+                if (value.length > (isOriginallyContentFieldTg ? 2000 : 200)) valToDisplay += '...';
+                message += `*${escapedFieldName}:* ${valToDisplay.replace(/[_*[\]()~`>#+=|{}.!\-]/g, '\\$&')}\n`;
+            } else { // Toggle OFF: No fields get a prefix, just their value (italicized)
+                let valToDisplay = value.substring(0, isOriginallyContentFieldTg ? 2000 : 200);
+                if (value.length > (isOriginallyContentFieldTg ? 2000 : 200)) valToDisplay += '...';
+                // For Telegram, when no prefix, content-like fields are italicized, others plain if that's desired, or all italicized.
+                // Current client-side preview makes all no-prefix values italicized. Let's match that.
+                message += `_${valToDisplay.replace(/[_*[\]()~`>#+=|{}.!\-]/g, '\\$&')}_\n`;
+            }
+        }
+    });
+
+    // Send message
+    try {
+        await bot.sendMessage(chatId, message.trim().substring(0, 4090), { parse_mode: 'Markdown' });
+        console.log(`Sent Telegram notification for "${itemTitle || 'an item'}" from "${feedTitleFromFeedObject}"`);
+    } catch (error) {
+        console.error('Error sending Telegram notification:', error.response ? JSON.stringify(error.response.data) : error.message);
+    }
+}
+
+// MODIFIED: Function now only notifies integrations associated with the specific feed
+function notifyIntegrationsForFeed(feed, item) {
+    const { title: feedTitle, url: feedOriginalUrl, selectedFields, associatedIntegrations, showAllPrefixes } = feed;
+
+    if (!associatedIntegrations || associatedIntegrations.length === 0) {
+        // console.log(`Feed ${feedTitle} has no associated integrations. No notifications sent.`);
+        return; // No specific integrations to notify for this feed
+    }
+
+    // Filter the global integrations list to get only the ones associated with this feed
+    const targetIntegrations = global.integrations.filter(integ => 
+        associatedIntegrations.includes(integ.id)
+    );
+
+    if (targetIntegrations.length === 0) {
+        // This case might happen if associatedIntegrations contains IDs that no longer exist
+        // console.log(`No matching active integrations found for feed ${feedTitle} from its associated list. Potential stale data.`);
+        return;
+    }
+
+    // console.log(`Notifying ${targetIntegrations.length} associated integrations for feed ${feedTitle}`);
+
+    targetIntegrations.forEach(integration => {
+        if (integration.type === 'discord' && integration.webhookUrl) {
+            sendDiscordNotification(integration.webhookUrl, feedTitle, item, selectedFields, feedOriginalUrl, !!showAllPrefixes);
+        } else if (integration.type === 'telegram' && integration.token && integration.chatId) {
+            sendTelegramNotification(integration.token, integration.chatId, feedTitle, item, selectedFields, feedOriginalUrl, !!showAllPrefixes);
+        } else {
+            // console.warn(`Integration ${integration.name} (${integration.id}) for feed ${feedTitle} has an unknown type or is misconfigured.`);
+        }
+    });
+}
+
+module.exports = {
+    getFieldValue,
+    sendDiscordNotification,
+    sendTelegramNotification,
+    notifyIntegrationsForFeed
+}; 
