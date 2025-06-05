@@ -140,6 +140,29 @@ async function initializeDatabase() {
             console.log('Created integrations table.');
         }
 
+        // Keyword Routes Table: Check existence and create if needed
+        const hasKeywordRoutesTable = await db.schema.hasTable('keyword_routes');
+        if (!hasKeywordRoutesTable) {
+            await db.schema.createTable('keyword_routes', (table) => {
+                table.string('id').primary();
+                table.string('feed_id').notNullable();
+                table.string('keyword').notNullable();
+                table.string('integration_id').notNullable();
+                table.boolean('is_regex').defaultTo(false);
+                table.boolean('case_sensitive').defaultTo(false);
+                table.boolean('is_active').defaultTo(true);
+                table.timestamps(true, true);
+                
+                // Foreign key constraints
+                table.foreign('feed_id').references('id').inTable('feeds').onDelete('CASCADE');
+                table.foreign('integration_id').references('id').inTable('integrations').onDelete('CASCADE');
+                
+                // Index for faster keyword searches
+                table.index(['feed_id', 'keyword']);
+            });
+            console.log('Created keyword_routes table.');
+        }
+
     } catch (error) {
         console.error('Error initializing database:', error);
         process.exit(1); 

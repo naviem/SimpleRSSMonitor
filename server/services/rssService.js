@@ -4,6 +4,7 @@ const { v4: uuidv4 } = require('uuid');
 const { getFieldValue, notifyIntegrationsForFeed } = require('./notificationService');
 const { db } = require('./databaseService');
 const { convert } = require('html-to-text');
+const keywordRouteService = require('./keywordRouteService');
 
 // Store for setTimeout IDs, so we can clear them if a feed is updated or deleted
 const feedTimers = {}; 
@@ -60,6 +61,9 @@ async function fetchAndProcessFeed(feed, io, isInitialFetch = false) {
 
         const originalHistoryLength = feed.history.length;
 
+        // Get keyword routes for this feed
+        const keywordRoutes = await keywordRouteService.getRoutesForFeed(feed.id);
+
         if (isInitialFetch) {
             console.log(`Initial fetch for ${feed.title}. Processing up to 2 newest items for notification.`);
             // Use the already sorted itemsToProcessForHistory
@@ -70,7 +74,32 @@ async function fetchAndProcessFeed(feed, io, isInitialFetch = false) {
 
                 if (!feed.history.includes(itemIdentifier)) {
                     console.log(`Sending initial notification for ${feed.title}: ${item.title}`);
+                    
+                    // Create content string for keyword matching
+                    const content = [
+                        item.title,
+                        item.content,
+                        item.description,
+                        item.summary
+                    ].filter(Boolean).join(' ');
+
+                    // Get matching integration IDs
+                    const matchingIntegrationIds = keywordRouteService.matchKeywords(content, keywordRoutes);
+                    
+                    // Use matching integrations or fall back to default
+                    const targetIntegrationIds = matchingIntegrationIds.length > 0 
+                        ? matchingIntegrationIds 
+                        : feed.associatedIntegrations;
+
+                    // Update feed's associated integrations temporarily for this notification
+                    const originalIntegrations = feed.associatedIntegrations;
+                    feed.associatedIntegrations = targetIntegrationIds;
+
                     notifyIntegrationsForFeed(feed, item);
+                    
+                    // Restore original integrations
+                    feed.associatedIntegrations = originalIntegrations;
+
                     feed.history.push(itemIdentifier);
                     newItemsFound++;
                      io.emit('new_feed_item', { 
@@ -109,7 +138,32 @@ async function fetchAndProcessFeed(feed, io, isInitialFetch = false) {
                     if (feed.history.length > 200) {
                         feed.history.shift(); 
                     }
-                    notifyIntegrationsForFeed(feed, item); 
+
+                    // Create content string for keyword matching
+                    const content = [
+                        item.title,
+                        item.content,
+                        item.description,
+                        item.summary
+                    ].filter(Boolean).join(' ');
+
+                    // Get matching integration IDs
+                    const matchingIntegrationIds = keywordRouteService.matchKeywords(content, keywordRoutes);
+                    
+                    // Use matching integrations or fall back to default
+                    const targetIntegrationIds = matchingIntegrationIds.length > 0 
+                        ? matchingIntegrationIds 
+                        : feed.associatedIntegrations;
+
+                    // Update feed's associated integrations temporarily for this notification
+                    const originalIntegrations = feed.associatedIntegrations;
+                    feed.associatedIntegrations = targetIntegrationIds;
+
+                    notifyIntegrationsForFeed(feed, item);
+                    
+                    // Restore original integrations
+                    feed.associatedIntegrations = originalIntegrations;
+
                     io.emit('new_feed_item', { 
                         feedId: feed.id,
                         feedTitle: feed.title,

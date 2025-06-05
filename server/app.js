@@ -7,6 +7,7 @@ const path = require('path');
 const mainRoutes = require('./routes/index');
 const feedApiRoutes = require('./routes/feeds'); // Renamed for clarity if used as API
 const integrationApiRoutes = require('./routes/integrations'); // Renamed for clarity
+const keywordRouteApiRoutes = require('./routes/keywordRoutes'); // Add this line
 
 // Import services
 const { initializeSocketEvents } = require('./services/socketService');
@@ -30,6 +31,7 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 app.use('/', mainRoutes); // Handles serving HTML pages
 app.use('/api/feeds', feedApiRoutes); // API endpoint for feeds
 app.use('/api/integrations', integrationApiRoutes); // API endpoint for integrations
+app.use('/api/keyword-routes', keywordRouteApiRoutes); // Add this line
 
 // Initialize in-memory stores (will be populated from DB)
 global.feeds = []; 
