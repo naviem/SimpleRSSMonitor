@@ -97,9 +97,9 @@ function initializeSocketEvents(io) {
 
         socket.on('update_feed', async (feedData) => {
             // console.log('update_feed received:', feedData);
-            console.log('SERVER: Received update_feed event.');
-            console.log('SERVER: feedData received:', JSON.stringify(feedData, null, 2));
-            console.log('SERVER: feedData.showAllPrefixes before any processing:', feedData.showAllPrefixes, 'Type:', typeof feedData.showAllPrefixes);
+            console.log('Received update_feed event.');
+            console.log('feedData received:', JSON.stringify(feedData, null, 2));
+            console.log('feedData.showAllPrefixes before any processing:', feedData.showAllPrefixes, 'Type:', typeof feedData.showAllPrefixes);
 
             const feedId = feedData.id;
             const currentFeedIndex = global.feeds.findIndex(f => f.id === feedId);
@@ -143,23 +143,23 @@ function initializeSocketEvents(io) {
             if (loggableUpdatedFeedData.updated_at && typeof loggableUpdatedFeedData.updated_at === 'object') {
                 loggableUpdatedFeedData.updated_at = '[Knex db.fn.now()]'; // Placeholder for logging
             }
-            console.log('SERVER: updatedFeedData for DB:', JSON.stringify(loggableUpdatedFeedData, null, 2));
-            console.log('SERVER: updatedFeedData.showAllPrefixes for DB:', updatedFeedData.showAllPrefixes, 'Type:', typeof updatedFeedData.showAllPrefixes);
+            console.log('updatedFeedData for DB:', JSON.stringify(loggableUpdatedFeedData, null, 2));
+            console.log('updatedFeedData.showAllPrefixes for DB:', updatedFeedData.showAllPrefixes, 'Type:', typeof updatedFeedData.showAllPrefixes);
 
             try {
                 await db('feeds').where({ id: feedId }).update(updatedFeedData);
-                console.log('SERVER: DB update successful for feed:', feedId);
-                console.log('SERVER: Value of showAllPrefixes written to DB was:', updatedFeedData.showAllPrefixes);
+                console.log('DB update successful for feed:', feedId);
+                console.log('Value of showAllPrefixes written to DB was:', updatedFeedData.showAllPrefixes);
 
                 // Fetch the updated record from DB to confirm
                 const updatedFeedFromDb = await db('feeds').where({ id: feedId }).first();
                 if (updatedFeedFromDb) {
                     // The value from DB will be 0 or 1 for boolean, need to parse
                     const showAllPrefixesFromDb = updatedFeedFromDb.showAllPrefixes === 1 || updatedFeedFromDb.showAllPrefixes === true;
-                    console.log('SERVER: Fetched record from DB. Raw showAllPrefixes from DB:', updatedFeedFromDb.showAllPrefixes, 'Type:', typeof updatedFeedFromDb.showAllPrefixes);
-                    console.log('SERVER: Parsed showAllPrefixes from DB:', showAllPrefixesFromDb, 'Type:', typeof showAllPrefixesFromDb);
+                    console.log('Fetched record from DB. Raw showAllPrefixes from DB:', updatedFeedFromDb.showAllPrefixes, 'Type:', typeof updatedFeedFromDb.showAllPrefixes);
+                    console.log('Parsed showAllPrefixes from DB:', showAllPrefixesFromDb, 'Type:', typeof showAllPrefixesFromDb);
                 } else {
-                    console.log('SERVER: Could not fetch updated record from DB to confirm.');
+                    console.log('Could not fetch updated record from DB to confirm.');
                 }
 
                 // Update global array
@@ -175,7 +175,7 @@ function initializeSocketEvents(io) {
                     updated_at: new Date().toISOString() // Reflect update time
                 };
                 global.feeds[currentFeedIndex] = updatedInMemoryFeed;
-                console.log('SERVER: In-memory feed updated. global.feeds[currentFeedIndex].showAllPrefixes:', global.feeds[currentFeedIndex].showAllPrefixes, 'Type:', typeof global.feeds[currentFeedIndex].showAllPrefixes);
+                console.log('In-memory feed updated. global.feeds[currentFeedIndex].showAllPrefixes:', global.feeds[currentFeedIndex].showAllPrefixes, 'Type:', typeof global.feeds[currentFeedIndex].showAllPrefixes);
                 
                 // Prepare data for client (parseJsonFields should handle boolean conversion if needed)
                 const feedsForClient = global.feeds.map(feed => 
@@ -183,7 +183,7 @@ function initializeSocketEvents(io) {
                 );
                 const updatedFeedForClient = feedsForClient.find(f => f.id === feedId);
                  if (updatedFeedForClient) {
-                    console.log('SERVER: Parsed feed for client. updatedFeedForClient.showAllPrefixes:', updatedFeedForClient.showAllPrefixes, 'Type:', typeof updatedFeedForClient.showAllPrefixes);
+                    console.log('Parsed feed for client. updatedFeedForClient.showAllPrefixes:', updatedFeedForClient.showAllPrefixes, 'Type:', typeof updatedFeedForClient.showAllPrefixes);
                 }
 
                 // broadcastFeeds(io); // This calls parseJsonFields internally
@@ -214,14 +214,23 @@ function initializeSocketEvents(io) {
             }
         });
 
-        socket.on('detect_feed_fields', async ({ url }) => {
-            console.log('detect_feed_fields received for:', url);
+        socket.on('detect_feed_fields', async ({ feedUrl }) => {
+            console.log('detect_feed_fields received for:', feedUrl);
             try {
-                const fields = await getCommonFieldsFromFeed(url);
-                socket.emit('feed_fields_detected', { url, fields });
+                const { processFeedItem } = require('./rssService'); // Import processor
+                const feed = await parser.parseURL(feedUrl);
+                if (!feed.items || feed.items.length === 0) {
+                    throw new Error('No items found in feed.');
+                }
+                
+                // Process the first item to get all fields, including generated ones
+                const processedSampleItem = processFeedItem(feed.items[0], null); // feedId is not needed for detection
+                const fields = Object.keys(processedSampleItem);
+
+                socket.emit('feed_fields_detected', { feedUrl, fields, sampleItem: processedSampleItem });
             } catch (error) {
                 console.error('Error in detect_feed_fields event handler:', error);
-                socket.emit('feed_fields_detected', { url, fields: [], error: 'Failed to detect fields.' });
+                socket.emit('feed_fields_detected', { feedUrl, fields: [], error: 'Failed to detect fields.' });
             }
         });
 

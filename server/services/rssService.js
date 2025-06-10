@@ -64,49 +64,45 @@ async function fetchAndProcessFeed(feed, io, isInitialFetch = false) {
         // Get keyword routes for this feed
         const keywordRoutes = await keywordRouteService.getRoutesForFeed(feed.id);
 
+        // Helper function to handle notification logic
+        const sendNotificationForItem = (item) => {
+            const matchingIntegrationIds = keywordRouteService.matchKeywords(item, keywordRoutes);
+            const targetIntegrationIds = matchingIntegrationIds.length > 0
+                ? matchingIntegrationIds
+                : (feed.associatedIntegrations || []);
+
+            if (targetIntegrationIds.length > 0) {
+                // Temporarily override the feed's associations for this notification
+                const originalIntegrations = feed.associatedIntegrations;
+                feed.associatedIntegrations = targetIntegrationIds;
+
+                console.log(`Sending notification for "${item.title}" to ${targetIntegrationIds.length} target(s).`);
+                notifyIntegrationsForFeed(feed, item);
+
+                // Restore original integrations
+                feed.associatedIntegrations = originalIntegrations;
+            } else {
+                console.log(`No matching keyword routes or default integrations for "${item.title}". No notification sent.`);
+            }
+
+            io.emit('new_feed_item', {
+                feedId: feed.id,
+                feedTitle: feed.title,
+                item: { title: item.title, link: item.link, guid: item.guid }
+            });
+        };
+
         if (isInitialFetch) {
             console.log(`Initial fetch for ${feed.title}. Processing up to 2 newest items for notification.`);
-            // Use the already sorted itemsToProcessForHistory
             const newestTwoItems = itemsToProcessForHistory.slice(0, 2);
-            for (const item of newestTwoItems) { // item here is already processed
-                const itemIdentifier = item.guid || item.link || item.title; // Use processed item's ID fields
+            for (const item of newestTwoItems) {
+                const itemIdentifier = item.guid || item.link || item.title;
                 if (!itemIdentifier) continue;
 
                 if (!feed.history.includes(itemIdentifier)) {
-                    console.log(`Sending initial notification for ${feed.title}: ${item.title}`);
-                    
-                    // Create content string for keyword matching
-                    const content = [
-                        item.title,
-                        item.content,
-                        item.description,
-                        item.summary
-                    ].filter(Boolean).join(' ');
-
-                    // Get matching integration IDs
-                    const matchingIntegrationIds = keywordRouteService.matchKeywords(content, keywordRoutes);
-                    
-                    // Use matching integrations or fall back to default
-                    const targetIntegrationIds = matchingIntegrationIds.length > 0 
-                        ? matchingIntegrationIds 
-                        : feed.associatedIntegrations;
-
-                    // Update feed's associated integrations temporarily for this notification
-                    const originalIntegrations = feed.associatedIntegrations;
-                    feed.associatedIntegrations = targetIntegrationIds;
-
-                    notifyIntegrationsForFeed(feed, item);
-                    
-                    // Restore original integrations
-                    feed.associatedIntegrations = originalIntegrations;
-
+                    sendNotificationForItem(item);
                     feed.history.push(itemIdentifier);
                     newItemsFound++;
-                     io.emit('new_feed_item', { 
-                        feedId: feed.id,
-                        feedTitle: feed.title,
-                        item: { title: item.title, link: item.link, guid: item.guid }
-                    });
                 }
             }
             // Add all other items from initial fetch to history silently
@@ -134,41 +130,11 @@ async function fetchAndProcessFeed(feed, io, isInitialFetch = false) {
                 if (!feed.history.includes(itemIdentifier)) {
                     console.log(`New item found in ${feed.title}: ${item.title}`);
                     newItemsFound++;
+                    sendNotificationForItem(item);
                     feed.history.push(itemIdentifier);
                     if (feed.history.length > 200) {
                         feed.history.shift(); 
                     }
-
-                    // Create content string for keyword matching
-                    const content = [
-                        item.title,
-                        item.content,
-                        item.description,
-                        item.summary
-                    ].filter(Boolean).join(' ');
-
-                    // Get matching integration IDs
-                    const matchingIntegrationIds = keywordRouteService.matchKeywords(content, keywordRoutes);
-                    
-                    // Use matching integrations or fall back to default
-                    const targetIntegrationIds = matchingIntegrationIds.length > 0 
-                        ? matchingIntegrationIds 
-                        : feed.associatedIntegrations;
-
-                    // Update feed's associated integrations temporarily for this notification
-                    const originalIntegrations = feed.associatedIntegrations;
-                    feed.associatedIntegrations = targetIntegrationIds;
-
-                    notifyIntegrationsForFeed(feed, item);
-                    
-                    // Restore original integrations
-                    feed.associatedIntegrations = originalIntegrations;
-
-                    io.emit('new_feed_item', { 
-                        feedId: feed.id,
-                        feedTitle: feed.title,
-                        item: { title: item.title, link: item.link, guid: item.guid }
-                    });
                 }
             }
         }
@@ -248,10 +214,7 @@ function scheduleFeedCheck(feed, io, isInitialFetch = false) {
         const currentFeed = global.feeds.find(f => f.id === feed.id);
         if (currentFeed) {
             // Pass false for isInitialFetch for subsequent scheduled checks
-            fetchAndProcessFeed(currentFeed, io, isInitialFetch);
-        } else {
-            console.log(`Scheduled check for feed ${feed.id} cancelled as it no longer exists.`);
-            stopFeedCheck(feed.id);
+            fetchAndProcessFeed(currentFeed, io, false);
         }
     }, intervalMilliseconds);
 }
@@ -324,4 +287,46 @@ function processFeedItem(item, feedId) {
     return processedItem;
 }
 
-module.exports = { startRssScheduler, fetchAndProcessFeed, scheduleFeedCheck, stopFeedCheck, manageFeedScheduling }; 
+async function getFeedDetails(feedId) {
+    const { parseJsonFields, feedJsonFields } = require('./databaseService');
+    const feed = await db('feeds').where({ id: feedId }).first();
+    if (!feed) {
+        return null;
+    }
+    // The 'parseJsonFields' function needs the object and the list of fields to parse.
+    return parseJsonFields(feed, feedJsonFields);
+}
+
+async function scanFeedNow(feedId) {
+    const feed = global.feeds.find(f => f.id === feedId);
+    if (!feed) {
+        return { success: false, message: 'Feed not found.' };
+    }
+
+    // Use the app's io instance. This assumes io is stored globally.
+    const io = require('../../server/app').io;
+    if (!io) {
+        console.error('Socket.IO instance not available in rssService.');
+        return { success: false, message: 'Server error: Cannot access Socket.IO.' };
+    }
+
+    console.log(`Manual scan triggered for ${feed.title}.`);
+    // Clear any pending scheduled check to avoid a double-run.
+    // The fetchAndProcessFeed will reschedule it correctly.
+    stopFeedCheck(feed.id);
+    
+    // Run the check immediately. Pass io and false for isInitialFetch.
+    fetchAndProcessFeed(feed, io, false);
+
+    return { success: true, message: `Scan initiated for ${feed.title}.` };
+}
+
+module.exports = {
+    fetchAndProcessFeed,
+    scheduleFeedCheck,
+    stopFeedCheck,
+    startRssScheduler,
+    manageFeedScheduling,
+    getFeedDetails,
+    scanFeedNow
+}; 

@@ -58,10 +58,12 @@ async function startServer() {
     // Now initialize socket events, as they might rely on global.feeds/integrations
     initializeSocketEvents(io); 
 
+    // Start server
     server.listen(PORT, () => {
-        console.log(`Server running on port ${PORT}`);
-        // Start RSS scheduler (it uses global.feeds)
-        startRssScheduler(io);
+        console.log(`Server is running on http://localhost:${PORT}`);
+        // Initialize the RSS scheduler after the server starts
+        const rssService = require('./services/rssService');
+        rssService.startRssScheduler(io);
     });
 }
 
@@ -69,5 +71,8 @@ startServer().catch(error => {
     console.error('Failed to start server:', error);
     process.exit(1);
 });
+
+// Make io available to other modules AFTER server setup
+module.exports.io = io;
 
 module.exports = { app, server, io }; 

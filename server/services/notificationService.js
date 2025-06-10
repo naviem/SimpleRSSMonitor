@@ -17,6 +17,31 @@ function getFieldValue(item, fieldName) {
     }
 }
 
+// Discord notification queue and processor
+const discordQueues = {};
+const DISCORD_DELAY_MS = 1000; // 1 second delay
+
+function queueDiscordNotification(webhookUrl, ...args) {
+    if (!discordQueues[webhookUrl]) {
+        discordQueues[webhookUrl] = [];
+    }
+    discordQueues[webhookUrl].push(args);
+    if (discordQueues[webhookUrl].length === 1) {
+        processDiscordQueue(webhookUrl);
+    }
+}
+
+async function processDiscordQueue(webhookUrl) {
+    const queue = discordQueues[webhookUrl];
+    if (!queue || queue.length === 0) return;
+    const args = queue[0];
+    await sendDiscordNotification(...args);
+    queue.shift();
+    if (queue.length > 0) {
+        setTimeout(() => processDiscordQueue(webhookUrl), DISCORD_DELAY_MS);
+    }
+}
+
 async function sendDiscordNotification(webhookUrl, feedTitleFromFeedObject, item, selectedFields, feedOriginalUrl, showAllPrefixesFlag) {
     if (!webhookUrl) {
         console.warn('Discord webhook URL not provided.');
@@ -114,8 +139,11 @@ async function sendTelegramNotification(botToken, chatId, feedTitleFromFeedObjec
 
     const bot = new TelegramBot(botToken);
 
+    // Helper to escape text for MarkdownV2
+    const escape = (text) => text.replace(/[_*[\]()~`>#+=|{}.!\-]/g, '\\$&');
+
     // Feed Title (always included by default, bolded)
-    let message = `*${feedTitleFromFeedObject.replace(/[_*[\]()~`>#+=|{}.!\-]/g, '\\$&')}*\n`;
+    let message = `*${escape(feedTitleFromFeedObject)}*\n`;
 
     // Determine Item Title and Link based on selectedFields
     let itemTitle = '';
@@ -128,52 +156,54 @@ async function sendTelegramNotification(botToken, chatId, feedTitleFromFeedObjec
     }
 
     if (itemTitle) {
-        const escapedTgTitle = itemTitle.replace(/[[\]()]/g, '\\\\$&');
         if (itemLink) {
-            const escapedTgLink = itemLink.replace(/[()]/g, '\\\\$&');
-            message += `[${escapedTgTitle}](${escapedTgLink})\n\n`;
+            // URL part of a markdown link should not have its special characters escaped,
+            // but parentheses need to be URL-encoded.
+            const encodedLink = itemLink.replace(/\(/g, '%28').replace(/\)/g, '%29');
+            message += `[${escape(itemTitle)}](${encodedLink})\n\n`;
         } else {
-            message += `${escapedTgTitle}\n\n`; 
+            message += `*${escape(itemTitle)}*\n\n`;
         }
-    } else if (itemLink) { // Link selected but not title
-        const escapedTgLink = itemLink.replace(/[()]/g, '\\\\$&');
-        message += `[${escapedTgLink}](${escapedTgLink})\n\n`;
+    } else if (itemLink) {
+        const encodedLink = itemLink.replace(/\(/g, '%28').replace(/\)/g, '%29');
+        message += `[${escape(itemLink)}](${encodedLink})\n\n`;
     }
 
     const noPrefixFieldsTg = ['title', 'link', 'contentSnippet', 'content', 'summary', 'description', 'summary_text', 'content_text', 'description_text'];
 
     // Process other selected fields
     selectedFields.forEach(fieldKey => {
-        if (fieldKey === 'title' || fieldKey === 'link') return; // Handled above by main title/link
+        if (fieldKey === 'title' || fieldKey === 'link') return;
 
         const rawValue = getFieldValue(item, fieldKey);
         const value = String(rawValue);
 
-        if (value) { // Only add if there's a value
+        if (value) {
             const isOriginallyContentFieldTg = noPrefixFieldsTg.includes(fieldKey);
+            const valToDisplay = value.substring(0, isOriginallyContentFieldTg ? 2000 : 200);
 
-            if (showAllPrefixesFlag) { // Toggle ON: All fields get a prefix
+            if (showAllPrefixesFlag) {
                 let fieldName = fieldKey.charAt(0).toUpperCase() + fieldKey.slice(1);
-                const escapedFieldName = fieldName.replace(/[_*[\]()~`>#+=|{}.!\-]/g, '\\$&');
-                let valToDisplay = value.substring(0, isOriginallyContentFieldTg ? 2000 : 200);
-                if (value.length > (isOriginallyContentFieldTg ? 2000 : 200)) valToDisplay += '...';
-                message += `*${escapedFieldName}:* ${valToDisplay.replace(/[_*[\]()~`>#+=|{}.!\-]/g, '\\$&')}\n`;
-            } else { // Toggle OFF: No fields get a prefix, just their value (italicized)
-                let valToDisplay = value.substring(0, isOriginallyContentFieldTg ? 2000 : 200);
-                if (value.length > (isOriginallyContentFieldTg ? 2000 : 200)) valToDisplay += '...';
-                // For Telegram, when no prefix, content-like fields are italicized, others plain if that's desired, or all italicized.
-                // Current client-side preview makes all no-prefix values italicized. Let's match that.
-                message += `_${valToDisplay.replace(/[_*[\]()~`>#+=|{}.!\-]/g, '\\$&')}_\n`;
+                message += `*${escape(fieldName)}*: ${escape(valToDisplay)}${value.length > valToDisplay.length ? '...' : ''}\n`;
+            } else {
+                message += `_${escape(valToDisplay)}${value.length > valToDisplay.length ? '...' : ''}_\n`;
             }
         }
     });
 
     // Send message
     try {
-        await bot.sendMessage(chatId, message.trim().substring(0, 4090), { parse_mode: 'Markdown' });
+        await bot.sendMessage(chatId, message.trim(), { parse_mode: 'MarkdownV2' });
         console.log(`Sent Telegram notification for "${itemTitle || 'an item'}" from "${feedTitleFromFeedObject}"`);
     } catch (error) {
-        console.error('Error sending Telegram notification:', error.response ? JSON.stringify(error.response.data) : error.message);
+        console.error('Error sending MarkdownV2 Telegram notification:', error.message);
+        try {
+            const plainTextMessage = message.replace(/[_*[\]()~`>#+=|{}.!\-]/g, '');
+            await bot.sendMessage(chatId, plainTextMessage.trim());
+            console.log(`Sent Telegram notification (plain text fallback) for "${itemTitle || 'an item'}" from "${feedTitleFromFeedObject}"`);
+        } catch (fallbackError) {
+            console.error('Error sending plain text fallback Telegram notification:', fallbackError.message);
+        }
     }
 }
 
@@ -201,7 +231,15 @@ function notifyIntegrationsForFeed(feed, item) {
 
     targetIntegrations.forEach(integration => {
         if (integration.type === 'discord' && integration.webhookUrl) {
-            sendDiscordNotification(integration.webhookUrl, feedTitle, item, selectedFields, feedOriginalUrl, !!showAllPrefixes);
+            queueDiscordNotification(
+                integration.webhookUrl,
+                integration.webhookUrl,
+                feedTitle,
+                item,
+                selectedFields,
+                feedOriginalUrl,
+                !!showAllPrefixes
+            );
         } else if (integration.type === 'telegram' && integration.token && integration.chatId) {
             sendTelegramNotification(integration.token, integration.chatId, feedTitle, item, selectedFields, feedOriginalUrl, !!showAllPrefixes);
         } else {

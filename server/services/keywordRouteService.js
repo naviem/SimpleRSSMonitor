@@ -11,29 +11,56 @@ class KeywordRouteService {
             integration_id: integrationId,
             is_regex: options.isRegex || false,
             case_sensitive: options.caseSensitive || false,
-            is_active: true
+            is_active: true,
+            fields: options.fields ? JSON.stringify(options.fields) : '[]'
         };
         
-        await db('keyword_routes').insert(route);
-        return route;
+        try {
+            await db('keyword_routes').insert(route);
+            return route;
+        } catch (error) {
+            console.error('Error creating keyword route:', error);
+            throw error;
+        }
     }
 
     // Get all routes for a feed
     async getRoutesForFeed(feedId) {
-        return await db('keyword_routes')
+        const routes = await db('keyword_routes')
             .where({ feed_id: feedId, is_active: true })
             .select('*');
+        
+        // Parse fields for each route
+        return routes.map(route => ({
+            ...route,
+            fields: route.fields ? JSON.parse(route.fields) : []
+        }));
     }
 
     // Update a keyword route
     async updateRoute(routeId, updates) {
-        await db('keyword_routes')
-            .where({ id: routeId })
-            .update({
-                ...updates,
-                updated_at: db.fn.now()
-            });
-        return await db('keyword_routes').where({ id: routeId }).first();
+        const updateData = { ...updates };
+        if (updateData.fields) {
+            updateData.fields = JSON.stringify(updateData.fields);
+        }
+        
+        try {
+            await db('keyword_routes')
+                .where({ id: routeId })
+                .update({
+                    ...updateData,
+                    updated_at: db.fn.now()
+                });
+            
+            const route = await db('keyword_routes').where({ id: routeId }).first();
+            if (route && route.fields) {
+                route.fields = JSON.parse(route.fields);
+            }
+            return route;
+        } catch (error) {
+            console.error('Error updating keyword route:', error);
+            throw error;
+        }
     }
 
     // Delete a keyword route
@@ -42,20 +69,37 @@ class KeywordRouteService {
     }
 
     // Match content against keywords
-    matchKeywords(content, routes) {
+    matchKeywords(item, routes) {
         const matches = new Set();
-        
         for (const route of routes) {
             if (!route.is_active) continue;
+            
+            let fields = [];
+            try {
+                // Safely parse fields: only if route.fields is a non-empty string
+                fields = (route.fields && typeof route.fields === 'string') ? JSON.parse(route.fields) : [];
+            } catch (e) {
+                console.error('Error parsing fields for route:', route.id, e);
+                fields = [];
+            }
+            
+            // If no fields specified, or 'all' is selected, match against all fields
+            let contentToSearch = '';
+            if (!fields || fields.length === 0 || fields.includes('all')) {
+                contentToSearch = [item.title, item.summary, item.content, item.description, item.contentSnippet]
+                    .filter(Boolean).join(' \n ');
+            } else {
+                contentToSearch = fields.map(f => getFieldValue(item, f)).filter(Boolean).join(' \n ');
+            }
             
             try {
                 if (route.is_regex) {
                     const regex = new RegExp(route.keyword, route.case_sensitive ? '' : 'i');
-                    if (regex.test(content)) {
+                    if (regex.test(contentToSearch)) {
                         matches.add(route.integration_id);
                     }
                 } else {
-                    const searchContent = route.case_sensitive ? content : content.toLowerCase();
+                    const searchContent = route.case_sensitive ? contentToSearch : contentToSearch.toLowerCase();
                     const searchKeyword = route.case_sensitive ? route.keyword : route.keyword.toLowerCase();
                     if (searchContent.includes(searchKeyword)) {
                         matches.add(route.integration_id);
@@ -65,7 +109,6 @@ class KeywordRouteService {
                 console.error(`Error matching keyword route ${route.id}:`, error);
             }
         }
-        
         return Array.from(matches);
     }
 
