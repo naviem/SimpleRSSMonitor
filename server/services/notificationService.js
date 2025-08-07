@@ -62,7 +62,7 @@ async function sendDiscordNotification(webhookUrl, feedTitleFromFeedObject, item
         .setColor(0x0099FF)
         .setAuthor({ name: String(feedTitleFromFeedObject).substring(0, 250) })
         .setTimestamp(item.isoDate ? new Date(item.isoDate) : new Date()) // Keep timestamp logic
-        .setFooter({ text: 'Simple RSS Monitor' });
+        .setFooter({ text: 'Simple RSS Monitor', url: 'https://github.com/naviem/SimpleRSSMonitor' });
 
     if (itemTitle) {
         embed.setTitle(itemTitle);
@@ -191,6 +191,9 @@ async function sendTelegramNotification(botToken, chatId, feedTitleFromFeedObjec
         }
     });
 
+    // Add footer with GitHub link
+    message += `\n\n[Simple RSS Monitor](https://github.com/naviem/SimpleRSSMonitor)`;
+
     // Send message
     try {
         await bot.sendMessage(chatId, message.trim(), { parse_mode: 'MarkdownV2' });
@@ -199,7 +202,9 @@ async function sendTelegramNotification(botToken, chatId, feedTitleFromFeedObjec
         console.error('Error sending MarkdownV2 Telegram notification:', error.message);
         try {
             const plainTextMessage = message.replace(/[_*[\]()~`>#+=|{}.!\-]/g, '');
-            await bot.sendMessage(chatId, plainTextMessage.trim());
+            // Add plain text footer
+            const plainFooter = '\n\nSimple RSS Monitor: https://github.com/naviem/SimpleRSSMonitor';
+            await bot.sendMessage(chatId, (plainTextMessage + plainFooter).trim());
             console.log(`Sent Telegram notification (plain text fallback) for "${itemTitle || 'an item'}" from "${feedTitleFromFeedObject}"`);
         } catch (fallbackError) {
             console.error('Error sending plain text fallback Telegram notification:', fallbackError.message);
