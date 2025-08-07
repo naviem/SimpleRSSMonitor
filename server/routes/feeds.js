@@ -12,17 +12,58 @@ router.get('/', (req, res) => {
 });
 
 // Get full details for a single feed (for editing)
-router.get('/:feedId/details', async (req, res) => {
+router.get('/:id/details', async (req, res) => {
     try {
-        const feedDetails = await rssService.getFeedDetails(req.params.feedId);
-        if (feedDetails) {
-            res.json(feedDetails);
+        const feed = await rssService.getFeedDetails(req.params.id);
+        if (feed) {
+            res.json(feed);
         } else {
             res.status(404).json({ error: 'Feed not found' });
         }
     } catch (error) {
-        console.error(`Error getting feed details for ${req.params.feedId}:`, error);
-        res.status(500).json({ error: 'Failed to get feed details' });
+        console.error(`Error getting feed details for ${req.params.id}:`, error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Update feed pause state
+router.post('/:id/pause', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { paused } = req.body;
+        
+        if (typeof paused !== 'boolean') {
+            return res.status(400).json({ error: 'Paused state must be a boolean' });
+        }
+
+        const success = await rssService.updateFeedPauseState(id, paused);
+        if (success) {
+            res.json({ success: true });
+        } else {
+            res.status(404).json({ error: 'Feed not found' });
+        }
+    } catch (error) {
+        console.error(`Error updating feed pause state for ${req.params.id}:`, error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Trigger manual scan for a feed
+router.post('/:id/scan', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const feed = await rssService.getFeedDetails(id);
+        
+        if (!feed) {
+            return res.status(404).json({ error: 'Feed not found' });
+        }
+
+        // Trigger the scan
+        await rssService.fetchAndProcessFeed(feed, req.app.get('io'));
+        res.json({ success: true, message: 'Feed scan triggered successfully' });
+    } catch (error) {
+        console.error(`Error triggering scan for feed ${req.params.id}:`, error);
+        res.status(500).json({ error: error.message });
     }
 });
 
@@ -32,22 +73,6 @@ router.post('/', async (req, res) => {
         // ... existing code ...
     } catch (error) {
         // ... existing code ...
-    }
-});
-
-// Manually trigger a feed scan
-router.post('/:feedId/scan', async (req, res) => {
-    try {
-        const feedId = req.params.feedId;
-        const result = await rssService.scanFeedNow(feedId);
-        if (result.success) {
-            res.json({ message: result.message });
-        } else {
-            res.status(404).json({ error: result.message });
-        }
-    } catch (error) {
-        console.error('Error in scan route:', error);
-        res.status(500).json({ error: 'Failed to trigger scan.' });
     }
 });
 

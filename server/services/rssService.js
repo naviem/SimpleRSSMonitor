@@ -5,21 +5,27 @@ const { getFieldValue, notifyIntegrationsForFeed } = require('./notificationServ
 const { db } = require('./databaseService');
 const { convert } = require('html-to-text');
 const keywordRouteService = require('./keywordRouteService');
+const statsService = require('./statsService');
 
 // Store for setTimeout IDs, so we can clear them if a feed is updated or deleted
 const feedTimers = {}; 
 
 async function fetchAndProcessFeed(feed, io, isInitialFetch = false) {
-    console.log(`Checking feed: ${feed.title} (${feed.url}) ${isInitialFetch ? '(Initial Fetch)' : ''}`);
+    const startTime = Date.now();
     let feedObject;
     let dbUpdateData = {};
 
     try {
-        feedObject = await parser.parseURL(feed.url);
+        // Get the feed content and calculate bytes
+        const response = await fetch(feed.url);
+        const feedContent = await response.text();
+        const bytesTransferred = new TextEncoder().encode(feedContent).length;
+        
+        feedObject = await parser.parseString(feedContent);
 
         // Process ALL items first using the processFeedItem function
         const processedItems = feedObject.items.map(item => processFeedItem(item, feed.id));
-        const sampleProcessedItems = processedItems.slice(0, 5); // Use processed items for samples
+        const sampleProcessedItems = processedItems.slice(0, 5);
 
         feed.status = 'ok';
         feed.statusDetails = `Successfully fetched ${processedItems.length} items.`;
@@ -29,7 +35,7 @@ async function fetchAndProcessFeed(feed, io, isInitialFetch = false) {
             status: feed.status,
             statusDetails: feed.statusDetails,
             lastChecked: feed.lastChecked,
-            sampleItems: JSON.stringify(sampleProcessedItems) // Store PROCESSED sample items
+            sampleItems: JSON.stringify(sampleProcessedItems)
         };
 
         // Update availableFields based on processed items if not already populated or if forced
@@ -64,45 +70,49 @@ async function fetchAndProcessFeed(feed, io, isInitialFetch = false) {
         // Get keyword routes for this feed
         const keywordRoutes = await keywordRouteService.getRoutesForFeed(feed.id);
 
-        // Helper function to handle notification logic
-        const sendNotificationForItem = (item) => {
-            const matchingIntegrationIds = keywordRouteService.matchKeywords(item, keywordRoutes);
-            const targetIntegrationIds = matchingIntegrationIds.length > 0
-                ? matchingIntegrationIds
-                : (feed.associatedIntegrations || []);
-
-            if (targetIntegrationIds.length > 0) {
-                // Temporarily override the feed's associations for this notification
-                const originalIntegrations = feed.associatedIntegrations;
-                feed.associatedIntegrations = targetIntegrationIds;
-
-                console.log(`Sending notification for "${item.title}" to ${targetIntegrationIds.length} target(s).`);
-                notifyIntegrationsForFeed(feed, item);
-
-                // Restore original integrations
-                feed.associatedIntegrations = originalIntegrations;
-            } else {
-                console.log(`No matching keyword routes or default integrations for "${item.title}". No notification sent.`);
-            }
-
-            io.emit('new_feed_item', {
-                feedId: feed.id,
-                feedTitle: feed.title,
-                item: { title: item.title, link: item.link, guid: item.guid }
-            });
-        };
-
         if (isInitialFetch) {
             console.log(`Initial fetch for ${feed.title}. Processing up to 2 newest items for notification.`);
+            // Use the already sorted itemsToProcessForHistory
             const newestTwoItems = itemsToProcessForHistory.slice(0, 2);
-            for (const item of newestTwoItems) {
-                const itemIdentifier = item.guid || item.link || item.title;
+            for (const item of newestTwoItems) { // item here is already processed
+                const itemIdentifier = item.guid || item.link || item.title; // Use processed item's ID fields
                 if (!itemIdentifier) continue;
 
                 if (!feed.history.includes(itemIdentifier)) {
-                    sendNotificationForItem(item);
+                    console.log(`Sending initial notification for ${feed.title}: ${item.title}`);
+                    
+                    // Create content string for keyword matching
+                    const content = [
+                        item.title,
+                        item.content,
+                        item.description,
+                        item.summary
+                    ].filter(Boolean).join(' ');
+
+                    // Get matching integration IDs
+                    const matchingIntegrationIds = keywordRouteService.matchKeywords(content, keywordRoutes);
+                    
+                    // Use matching integrations or fall back to default
+                    const targetIntegrationIds = matchingIntegrationIds.length > 0 
+                        ? matchingIntegrationIds 
+                        : feed.associatedIntegrations;
+
+                    // Update feed's associated integrations temporarily for this notification
+                    const originalIntegrations = feed.associatedIntegrations;
+                    feed.associatedIntegrations = targetIntegrationIds;
+
+                    notifyIntegrationsForFeed(feed, item);
+                    
+                    // Restore original integrations
+                    feed.associatedIntegrations = originalIntegrations;
+
                     feed.history.push(itemIdentifier);
                     newItemsFound++;
+                     io.emit('new_feed_item', { 
+                        feedId: feed.id,
+                        feedTitle: feed.title,
+                        item: { title: item.title, link: item.link, guid: item.guid }
+                    });
                 }
             }
             // Add all other items from initial fetch to history silently
@@ -130,11 +140,41 @@ async function fetchAndProcessFeed(feed, io, isInitialFetch = false) {
                 if (!feed.history.includes(itemIdentifier)) {
                     console.log(`New item found in ${feed.title}: ${item.title}`);
                     newItemsFound++;
-                    sendNotificationForItem(item);
                     feed.history.push(itemIdentifier);
                     if (feed.history.length > 200) {
                         feed.history.shift(); 
                     }
+
+                    // Create content string for keyword matching
+                    const content = [
+                        item.title,
+                        item.content,
+                        item.description,
+                        item.summary
+                    ].filter(Boolean).join(' ');
+
+                    // Get matching integration IDs
+                    const matchingIntegrationIds = keywordRouteService.matchKeywords(content, keywordRoutes);
+                    
+                    // Use matching integrations or fall back to default
+                    const targetIntegrationIds = matchingIntegrationIds.length > 0 
+                        ? matchingIntegrationIds 
+                        : feed.associatedIntegrations;
+
+                    // Update feed's associated integrations temporarily for this notification
+                    const originalIntegrations = feed.associatedIntegrations;
+                    feed.associatedIntegrations = targetIntegrationIds;
+
+                    notifyIntegrationsForFeed(feed, item);
+                    
+                    // Restore original integrations
+                    feed.associatedIntegrations = originalIntegrations;
+
+                    io.emit('new_feed_item', { 
+                        feedId: feed.id,
+                        feedTitle: feed.title,
+                        item: { title: item.title, link: item.link, guid: item.guid }
+                    });
                 }
             }
         }
@@ -146,6 +186,20 @@ async function fetchAndProcessFeed(feed, io, isInitialFetch = false) {
         if (newItemsFound > 0) {
             console.log(`${newItemsFound} new item(s) processed for ${feed.title}.`);
         }
+
+        // Record statistics - now tracking feed scans instead of items
+        const endTime = Date.now();
+        console.log('Recording stats for feed scan:', feed.id, {
+            scansProcessed: 1, // Each call to this function is one feed scan
+            bytesTransferred: bytesTransferred,
+            processingTimeMs: endTime - startTime
+        });
+        
+        await statsService.recordFeedStats(feed.id, {
+            itemsProcessed: 1, // Changed from processedItems.length to 1 to count scans
+            bytesTransferred: bytesTransferred,
+            processingTimeMs: endTime - startTime
+        });
 
     } catch (error) {
         console.error(`Error fetching or processing feed ${feed.url}:`, error.message);
@@ -206,6 +260,12 @@ function scheduleFeedCheck(feed, io, isInitialFetch = false) {
         clearTimeout(feedTimers[feed.id]);
     }
 
+    // Don't schedule if feed is paused
+    if (feed.paused) {
+        console.log(`Feed ${feed.title} is paused. Not scheduling next check.`);
+        return;
+    }
+
     const intervalMilliseconds = (feed.interval || 60) * 60 * 1000;
     console.log(`Scheduling next check for ${feed.title} in ${feed.interval} minutes.`);
     
@@ -229,19 +289,13 @@ function stopFeedCheck(feedId) {
 
 // Initialize scheduler for existing feeds that might be loaded from persistence (not applicable here yet)
 function startRssScheduler(io) {
-    console.log('Starting RSS Scheduler...');
     if (global.feeds && global.feeds.length > 0) {
-        console.log(`Scheduler starting with ${global.feeds.length} pre-existing feeds.`);
         global.feeds.forEach(feed => {
             const initialDelay = Math.random() * 5000 + 2000; // 2-7 seconds delay
-            console.log(`Scheduling initial check for pre-existing feed ${feed.title} in ${initialDelay.toFixed(0)}ms`);
-            // For pre-existing feeds, treat their first check as non-initial to avoid sending old items
-            // unless their history is empty (which implies it's truly new to the system or history was cleared)
             const treatAsInitial = !feed.history || feed.history.length === 0;
             setTimeout(() => fetchAndProcessFeed(feed, io, treatAsInitial), initialDelay);
         });
     }
-    console.log('RSS Scheduler is running and will process feeds as they are added/updated.');
 }
 
 // Functions to be called by socketService or other parts of the app
@@ -297,28 +351,37 @@ async function getFeedDetails(feedId) {
     return parseJsonFields(feed, feedJsonFields);
 }
 
-async function scanFeedNow(feedId) {
-    const feed = global.feeds.find(f => f.id === feedId);
-    if (!feed) {
-        return { success: false, message: 'Feed not found.' };
+async function updateFeedPauseState(feedId, paused) {
+    try {
+        // Update in database
+        await db('feeds').where({ id: feedId }).update({
+            paused: paused,
+            updated_at: db.fn.now()
+        });
+
+        // Update in memory
+        const feedIndex = global.feeds.findIndex(f => f.id === feedId);
+        if (feedIndex === -1) {
+            return false;
+        }
+
+        global.feeds[feedIndex].paused = paused;
+
+        // If pausing, clear the timer
+        if (paused && feedTimers[feedId]) {
+            clearTimeout(feedTimers[feedId]);
+            delete feedTimers[feedId];
+        }
+        // If unpausing, reschedule the feed
+        else if (!paused && !feedTimers[feedId]) {
+            scheduleFeedCheck(global.feeds[feedIndex], global.io, false);
+        }
+
+        return true;
+    } catch (error) {
+        console.error(`Error updating feed pause state for ${feedId}:`, error);
+        throw error;
     }
-
-    // Use the app's io instance. This assumes io is stored globally.
-    const io = require('../../server/app').io;
-    if (!io) {
-        console.error('Socket.IO instance not available in rssService.');
-        return { success: false, message: 'Server error: Cannot access Socket.IO.' };
-    }
-
-    console.log(`Manual scan triggered for ${feed.title}.`);
-    // Clear any pending scheduled check to avoid a double-run.
-    // The fetchAndProcessFeed will reschedule it correctly.
-    stopFeedCheck(feed.id);
-    
-    // Run the check immediately. Pass io and false for isInitialFetch.
-    fetchAndProcessFeed(feed, io, false);
-
-    return { success: true, message: `Scan initiated for ${feed.title}.` };
 }
 
 module.exports = {
@@ -327,6 +390,7 @@ module.exports = {
     stopFeedCheck,
     startRssScheduler,
     manageFeedScheduling,
+    processFeedItem,
     getFeedDetails,
-    scanFeedNow
+    updateFeedPauseState
 }; 

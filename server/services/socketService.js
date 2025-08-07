@@ -214,6 +214,23 @@ function initializeSocketEvents(io) {
             }
         });
 
+        socket.on('update_feed_pause_state', async ({ id, paused }) => {
+            console.log('update_feed_pause_state received:', { id, paused });
+            try {
+                const { updateFeedPauseState } = require('./rssService');
+                const success = await updateFeedPauseState(id, paused);
+                if (success) {
+                    // Broadcast the updated feeds to all clients
+                    broadcastFeeds(io);
+                } else {
+                    socket.emit('operation_error', { message: 'Failed to update feed pause state: Feed not found.' });
+                }
+            } catch (error) {
+                console.error('Error updating feed pause state:', error);
+                socket.emit('operation_error', { message: 'Failed to update feed pause state.' });
+            }
+        });
+
         socket.on('detect_feed_fields', async ({ feedUrl }) => {
             console.log('detect_feed_fields received for:', feedUrl);
             try {
