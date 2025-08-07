@@ -13,4 +13,9 @@ router.get('/integrations', (req, res) => {
   res.sendFile(path.join(__dirname, '..', '..', 'public', 'integrations.html'));
 });
 
+// Serve stats.html for the /stats path
+router.get('/stats', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', '..', 'public', 'stats.html'));
+});
+
 module.exports = router; 
