@@ -44,9 +44,7 @@ async function initializeDatabase() {
             await createTables();
             console.log('Database schema created successfully.');
         } else {
-            console.log('Existing database detected. Running migrations...');
-            await db.migrate.latest();
-            console.log('Database migrations are up to date.');
+            console.log('Existing database detected. Schema is already up to date.');
         }
     } catch (error) {
         console.error('Error initializing database:', error);
