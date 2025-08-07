@@ -84,23 +84,32 @@ async function createTables() {
 
     // Create keyword_routes table
     await db.schema.createTable('keyword_routes', (table) => {
-        table.increments('id').primary();
+        table.string('id').primary();
+        table.string('feed_id').notNullable();
         table.string('keyword').notNullable();
-        table.integer('feed_id').unsigned().references('id').inTable('feeds').onDelete('CASCADE');
-        table.string('integration_name').notNullable();
-        table.boolean('enabled').defaultTo(true);
+        table.string('integration_id').notNullable();
+        table.boolean('is_regex').defaultTo(false);
+        table.boolean('case_sensitive').defaultTo(false);
+        table.boolean('is_active').defaultTo(true);
+        table.text('fields').defaultTo('[]');
         table.timestamps(true, true);
+        
+        // Foreign key constraints
+        table.foreign('feed_id').references('id').inTable('feeds').onDelete('CASCADE');
+        table.foreign('integration_id').references('id').inTable('integrations').onDelete('CASCADE');
+        
+        // Index for faster keyword searches
+        table.index(['feed_id', 'keyword']);
     });
 
-    // Create stats table
-    await db.schema.createTable('stats', (table) => {
+    // Create feed_stats table
+    await db.schema.createTable('feed_stats', (table) => {
         table.increments('id').primary();
-        table.integer('feed_id').unsigned().references('id').inTable('feeds').onDelete('CASCADE');
-        table.string('feed_name').notNullable();
-        table.string('feed_url').notNullable();
-        table.integer('data_transferred').defaultTo(0);
-        table.integer('scan_count').defaultTo(0);
-        table.timestamp('last_scan').nullable();
+        table.string('feed_id').references('id').inTable('feeds');
+        table.timestamp('timestamp').defaultTo(db.fn.now());
+        table.integer('items_processed').defaultTo(0);
+        table.integer('bytes_transferred').defaultTo(0);
+        table.integer('processing_time_ms').defaultTo(0);
         table.timestamps(true, true);
     });
 }
