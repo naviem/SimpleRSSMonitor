@@ -6,6 +6,7 @@ let globalFeedsCache = [];
 let globalIntegrationsCache = [];
 let currentKeywordRoutes = [];
 let keywordRouteToDelete = null;
+let socket; // Declare socket in global scope
 
 // Move renderFeedsTable here so it's globally available
 function renderFeedsTable(feeds) {
@@ -15,12 +16,14 @@ function renderFeedsTable(feeds) {
     feedsTableBody.innerHTML = ''; // Clear existing rows
     feedCount.textContent = feeds.length;
     if (feeds.length === 0) {
-        feedsTableBody.innerHTML = '<tr><td colspan="6">No feeds added yet.</td></tr>';
+        feedsTableBody.innerHTML = '<tr><td colspan="7">No feeds added yet.</td></tr>';
         return;
     }
     feeds.forEach(feed => {
         const row = feedsTableBody.insertRow();
         const statusClass = feed.status === 'ok' ? 'status-ok' : (feed.status === 'error' ? 'status-error' : 'status-pending');
+        const isPaused = feed.paused || false;
+        row.setAttribute('data-paused', isPaused);
         row.innerHTML = `
             <td><span class="status-icon ${statusClass}" title="${feed.statusDetails || feed.status || 'N/A'}"></span> ${feed.status || 'Pending'}</td>
             <td>${feed.title}</td>
@@ -30,6 +33,9 @@ function renderFeedsTable(feeds) {
             <td class="actions-cell">
                 <button class="btn btn-secondary btn-sm action-btn scan-feed-btn" data-id="${feed.id}" title="Scan Now">
                     <i class="fas fa-sync-alt"></i>
+                </button>
+                <button class="btn btn-secondary btn-sm action-btn pause-feed-btn" data-id="${feed.id}" title="${isPaused ? 'Resume Feed' : 'Pause Feed'}">
+                    <i class="fas ${isPaused ? 'fa-play' : 'fa-pause'}"></i>
                 </button>
                 <button class="btn btn-secondary btn-sm action-btn edit-feed-btn" data-id="${feed.id}">Edit</button>
                 <button class="btn btn-danger btn-sm action-btn delete-feed-btn" data-id="${feed.id}">Delete</button>
@@ -89,25 +95,58 @@ function renderFeedsTable(feeds) {
                     const errorData = await response.json();
                     throw new Error(errorData.error || 'Failed to start scan.');
                 }
-                // The backend will emit socket events to update the status, so no need to do much here.
-                // We can optionally show a success message if desired.
                 console.log(`Scan command sent for feed ${feedId}`);
             } catch (error) {
                 console.error('Error triggering scan:', error);
                 alert(`Could not trigger scan: ${error.message}`);
             } finally {
-                // Remove visual feedback after a short delay to feel more responsive
                 setTimeout(() => {
                     buttonEl.disabled = false;
                     icon.classList.remove('fa-spin');
                 }, 500);
+                }
+            });
+        });
+
+    // Add event listeners for pause/play buttons
+    document.querySelectorAll('.pause-feed-btn').forEach(button => {
+        button.addEventListener('click', async (e) => {
+            const buttonEl = e.currentTarget;
+            const feedId = buttonEl.dataset.id;
+            const icon = buttonEl.querySelector('i');
+            const isPaused = icon.classList.contains('fa-play');
+
+            try {
+                const response = await fetch(`/api/feeds/${feedId}/pause`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ paused: !isPaused })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to update feed pause state.');
+                }
+
+                // Update the icon
+                icon.classList.remove(isPaused ? 'fa-play' : 'fa-pause');
+                icon.classList.add(isPaused ? 'fa-pause' : 'fa-play');
+                buttonEl.title = isPaused ? 'Pause Feed' : 'Resume Feed';
+
+                // Emit socket event to update all clients
+                socket.emit('update_feed_pause_state', { id: feedId, paused: !isPaused });
+            } catch (error) {
+                console.error('Error updating feed pause state:', error);
+                alert(`Could not update feed state: ${error.message}`);
             }
         });
     });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    const socket = io();
+    socket = io();
 
     // Determine current page
     const isFeedsPage = !!document.getElementById('feedsTable');
@@ -115,11 +154,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Socket.IO Event Handlers (Common to both pages) --- //
     socket.on('connect', () => {
-        console.log('Connected to server via Socket.IO');
+        // Connection established
     });
 
     socket.on('init_data', (data) => {
-        console.log('Received initial data:', data);
         if (data.feeds) {
             globalFeedsCache = data.feeds;
             if (isFeedsPage) {
@@ -144,34 +182,35 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isIntegrationsPage) renderIntegrationsTable(integrations);
     });
 
-    socket.on('new_feed_item', (notification) => {
+    socket.on('feed_pause_state_updated', ({ id, paused }) => {
         if (isFeedsPage) {
-            console.log('New feed item notification:', notification);
+            const feed = globalFeedsCache.find(f => f.id === id);
+            if (feed) {
+                feed.paused = paused;
+                renderFeedsTable(globalFeedsCache);
+            }
         }
+    });
+
+    socket.on('new_feed_item', (notification) => {
+        // Handle new feed item notification silently
     });
 
     // --- Feeds Page Specific Logic --- //
     if (isFeedsPage) {
-        console.log('Setting up Feeds page specific logic.');
-
         // Modal setup
         setupModal('addFeedModal', 'addFeedBtn', '#closeAddFeedModal');
-        setupModal('editFeedModal', null, '#closeEditFeedModal'); // For Edit modal, open is manual
+        setupModal('editFeedModal', null, '#closeEditFeedModal');
         
         // Other setups
         setupKeywordRouteModals();
         setupFeedPageForms(socket);
         setupFeedPageEventListeners(socket);
         setupCollapsibles();
-
-        socket.on('feed_fields_detected', ({ feedUrl, fields, sampleItem, error }) => {
-            handleFeedFieldsDetected(feedUrl, fields, sampleItem, error);
-        });
     }
 
     // --- Integrations Page Specific Logic --- //
     if (isIntegrationsPage) {
-        console.log('Setting up Integrations page specific logic.');
         setupModal('integrationModal', 'addIntegrationBtn', '#closeIntegrationModal');
         setupIntegrationsPageForms(socket);
     }
@@ -235,9 +274,9 @@ function setupFeedPageForms(socket) {
     // Add Feed Form
     const addFeedForm = document.getElementById('addFeedForm');
     if (addFeedForm) {
-        addFeedForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const feedData = {
+            addFeedForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const feedData = {
                 id: document.getElementById('addFeedId').value || null,
                 title: document.getElementById('addFeedTitleInput').value,
                 url: document.getElementById('addFeedUrlInput').value,
@@ -245,16 +284,16 @@ function setupFeedPageForms(socket) {
                 showAllPrefixes: document.getElementById('addFeedShowAllPrefixesInput').checked,
                 selectedFields: Array.from(document.querySelectorAll('#addFeedFieldsCheckboxes input:checked')).map(cb => cb.value),
                 associatedIntegrations: Array.from(document.querySelectorAll('#addFeedIntegrationsCheckboxes input:checked')).map(cb => cb.value)
-            };
-            socket.emit('add_feed', feedData);
+                };
+                socket.emit('add_feed', feedData);
             document.getElementById('addFeedModal').style.display = 'none';
-        });
-    }
+            });
+        }
 
     // Edit Feed Form
     const editFeedForm = document.getElementById('editFeedForm');
     if (editFeedForm) {
-        editFeedForm.addEventListener('submit', (e) => {
+            editFeedForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const feedData = {
                 id: document.getElementById('editFeedId').value,
@@ -264,15 +303,15 @@ function setupFeedPageForms(socket) {
                 showAllPrefixes: document.getElementById('editFeedShowAllPrefixesInput').checked,
                 selectedFields: Array.from(document.querySelectorAll('#editFeedFieldsCheckboxes input:checked')).map(cb => cb.value),
                 associatedIntegrations: Array.from(document.querySelectorAll('#editFeedIntegrationsCheckboxes input:checked')).map(cb => cb.value)
-            };
-            socket.emit('update_feed', feedData);
+                };
+                socket.emit('update_feed', feedData);
             document.getElementById('editFeedModal').style.display = 'none';
-        });
-    }
-}
+            });
+            }
+        }
 
 function setupFeedPageEventListeners(socket) {
-    const addFeedBtn = document.getElementById('addFeedBtn');
+        const addFeedBtn = document.getElementById('addFeedBtn');
     if (addFeedBtn) {
         addFeedBtn.onclick = openAddFeedModal;
     }
@@ -310,38 +349,38 @@ function setupCollapsibles() {
 }
 
 function setupIntegrationsPageForms(socket) {
-    const integrationForm = document.getElementById('integrationForm');
+        const integrationForm = document.getElementById('integrationForm');
     if (!integrationForm) return;
 
-    const integrationTypeInput = document.getElementById('integrationTypeInput');
-    const discordWebhookUrlGroup = document.getElementById('discordWebhookUrlGroup');
-    const telegramBotTokenGroup = document.getElementById('telegramBotTokenGroup');
-    const telegramChatIdGroup = document.getElementById('telegramChatIdGroup');
+        const integrationTypeInput = document.getElementById('integrationTypeInput');
+        const discordWebhookUrlGroup = document.getElementById('discordWebhookUrlGroup');
+        const telegramBotTokenGroup = document.getElementById('telegramBotTokenGroup');
+        const telegramChatIdGroup = document.getElementById('telegramChatIdGroup');
 
-    integrationTypeInput.addEventListener('change', (e) => {
-        const type = e.target.value;
-        discordWebhookUrlGroup.style.display = (type === 'discord') ? 'block' : 'none';
-        telegramBotTokenGroup.style.display = (type === 'telegram') ? 'block' : 'none';
-        telegramChatIdGroup.style.display = (type === 'telegram') ? 'block' : 'none';
-    });
+        integrationTypeInput.addEventListener('change', (e) => {
+            const type = e.target.value;
+            discordWebhookUrlGroup.style.display = (type === 'discord') ? 'block' : 'none';
+            telegramBotTokenGroup.style.display = (type === 'telegram') ? 'block' : 'none';
+            telegramChatIdGroup.style.display = (type === 'telegram') ? 'block' : 'none';
+        });
 
-    integrationForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const integrationData = {
+        integrationForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const integrationData = {
             id: document.getElementById('integrationId').value || null,
             name: document.getElementById('integrationNameInput').value,
-            type: integrationTypeInput.value,
+                type: integrationTypeInput.value,
             webhookUrl: integrationTypeInput.value === 'discord' ? document.getElementById('discordWebhookUrlInput').value : null,
             token: integrationTypeInput.value === 'telegram' ? document.getElementById('telegramBotTokenInput').value : null,
             chatId: integrationTypeInput.value === 'telegram' ? document.getElementById('telegramChatIdInput').value : null,
-        };
-        socket.emit(integrationData.id ? 'update_integration' : 'add_integration', integrationData);
+            };
+            socket.emit(integrationData.id ? 'update_integration' : 'add_integration', integrationData);
         document.getElementById('integrationModal').style.display = 'none';
     });
 
     document.getElementById('addIntegrationBtn').addEventListener('click', () => {
         document.getElementById('integrationModalTitle').textContent = 'Add New Integration';
-        integrationForm.reset();
+            integrationForm.reset();
         document.getElementById('integrationId').value = '';
         integrationTypeInput.value = 'discord';
         integrationTypeInput.dispatchEvent(new Event('change'));
@@ -386,67 +425,67 @@ function handleFeedFieldsDetected(feedUrl, fields, sampleItem, error) {
     renderEditFeedPreview();
 }
 
-function renderIntegrationsTable(integrations) {
+        function renderIntegrationsTable(integrations) {
     const integrationsTableBody = document.getElementById('integrationsTableBody');
     const integrationCount = document.getElementById('integrationCount');
     if (!integrationsTableBody || !integrationCount) return;
 
     integrationsTableBody.innerHTML = '';
-    integrationCount.textContent = integrations.length;
-    if (integrations.length === 0) {
-        integrationsTableBody.innerHTML = '<tr><td colspan="4">No integrations added yet.</td></tr>';
-        return;
-    }
-    integrations.forEach(integ => {
-        const row = integrationsTableBody.insertRow();
-        let details = '';
-        if (integ.type === 'discord') {
-            details = `Webhook: ${integ.webhookUrl.substring(0,30)}...`;
-        } else if (integ.type === 'telegram') {
+            integrationCount.textContent = integrations.length;
+            if (integrations.length === 0) {
+                integrationsTableBody.innerHTML = '<tr><td colspan="4">No integrations added yet.</td></tr>';
+                return;
+            }
+            integrations.forEach(integ => {
+                const row = integrationsTableBody.insertRow();
+                let details = '';
+                if (integ.type === 'discord') {
+                    details = `Webhook: ${integ.webhookUrl.substring(0,30)}...`;
+                } else if (integ.type === 'telegram') {
             details = `Token: ${integ.token ? integ.token.substring(0,15) : ''}... / Chat ID: ${integ.chatId}`;
-        }
+                }
 
-        row.innerHTML = `
-            <td>${integ.name}</td>
-            <td>${integ.type.charAt(0).toUpperCase() + integ.type.slice(1)}</td>
-            <td>${details}</td>
-            <td>
-                <button class="btn btn-secondary btn-sm action-btn edit-integration-btn" data-id="${integ.id}">Edit</button>
-                <button class="btn btn-danger btn-sm action-btn delete-integration-btn" data-id="${integ.id}">Delete</button>
-            </td>
-        `;
-    });
+                row.innerHTML = `
+                    <td>${integ.name}</td>
+                    <td>${integ.type.charAt(0).toUpperCase() + integ.type.slice(1)}</td>
+                    <td>${details}</td>
+                    <td>
+                        <button class="btn btn-secondary btn-sm action-btn edit-integration-btn" data-id="${integ.id}">Edit</button>
+                        <button class="btn btn-danger btn-sm action-btn delete-integration-btn" data-id="${integ.id}">Delete</button>
+                    </td>
+                `;
+            });
 
-    document.querySelectorAll('.edit-integration-btn').forEach(button => {
-        button.addEventListener('click', (e) => {
-            const id = e.target.dataset.id;
+            document.querySelectorAll('.edit-integration-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const id = e.target.dataset.id;
             const integToEdit = globalIntegrationsCache.find(i => i.id === id);
-            if (integToEdit) {
+                    if (integToEdit) {
                 document.getElementById('integrationModalTitle').textContent = 'Edit Integration';
                 document.getElementById('integrationId').value = integToEdit.id;
                 document.getElementById('integrationNameInput').value = integToEdit.name;
                 const typeInput = document.getElementById('integrationTypeInput');
                 typeInput.value = integToEdit.type;
                 typeInput.dispatchEvent(new Event('change')); 
-                if (integToEdit.type === 'discord') {
+                        if (integToEdit.type === 'discord') {
                     document.getElementById('discordWebhookUrlInput').value = integToEdit.webhookUrl;
-                } else if (integToEdit.type === 'telegram') {
+                        } else if (integToEdit.type === 'telegram') {
                     document.getElementById('telegramBotTokenInput').value = integToEdit.token;
                     document.getElementById('telegramChatIdInput').value = integToEdit.chatId;
-                }
+                        }
                 document.getElementById('integrationModal').style.display = 'block';
-            }
-        });
-    });
+                    }
+                });
+            });
 
-    document.querySelectorAll('.delete-integration-btn').forEach(button => {
-        button.addEventListener('click', (e) => {
-            if (confirm('Are you sure you want to delete this integration?')) {
+            document.querySelectorAll('.delete-integration-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    if (confirm('Are you sure you want to delete this integration?')) {
                 const socket = io(); // This is not ideal, should be passed in
-                socket.emit('delete_integration', { id: e.target.dataset.id });
-            }
-        });
-    });
+                        socket.emit('delete_integration', { id: e.target.dataset.id });
+                    }
+                });
+            });
 }
 
 function showKeywordRoutesSection() {
@@ -469,7 +508,7 @@ async function loadKeywordRoutes(feedId) {
             console.error('Error loading keyword routes:', response.status, errorText);
             currentKeywordRoutes = []; // Ensure it's an array on error
         } else {
-            currentKeywordRoutes = await response.json();
+        currentKeywordRoutes = await response.json();
         }
         renderKeywordRoutes();
     } catch (error) {
@@ -503,12 +542,12 @@ function renderKeywordRoutes() {
         } else {
             fieldsHtml += `<span class="badge badge-secondary">All</span>`;
         }
-
+        
         routeElement.innerHTML = `
             <div class="route-info-wrapper">
                 <div class="route-summary">
                     <span class="route-keyword">"${route.keyword}"</span> &rarr; <span class="route-integration">${integrationName}</span>
-                </div>
+            </div>
                 <div class="route-details">
                     <div class="route-fields">${fieldsHtml}</div>
                     <div class="route-options">${optionsHtml}</div>
@@ -565,12 +604,12 @@ function showKeywordRouteModal(route = null) {
 
     // Populate integrations dropdown
     targetIntegrationSelect.innerHTML = ''; // Clear previous options
-    globalIntegrationsCache.forEach(integration => {
-        const option = document.createElement('option');
-        option.value = integration.id;
+        globalIntegrationsCache.forEach(integration => {
+            const option = document.createElement('option');
+            option.value = integration.id;
         option.textContent = integration.name;
         targetIntegrationSelect.appendChild(option);
-    });
+        });
 
     if (route) {
         // Editing existing route
@@ -593,11 +632,11 @@ function showKeywordRouteModal(route = null) {
                 }
             });
         }
-    } else {
+            } else {
         // Adding new route
         modalTitle.textContent = 'Add Keyword Rule';
     }
-
+    
     modal.style.display = 'block';
 }
 
@@ -934,9 +973,9 @@ function renderEditFeedPreview(feedObject) {
         discordPreviewTitle.innerHTML = '';
         discordPreviewDescription.innerHTML = '';
         telegramPreviewContent.textContent = 'No sample data for preview.';
-        editFeedPreviewSection.style.display = 'block';
+    editFeedPreviewSection.style.display = 'block';
         return;
-    }
+}
 
     // Discord Preview
     discordPreviewAuthor.textContent = feedTitle;
@@ -960,11 +999,11 @@ function renderEditFeedPreview(feedObject) {
 
             if (showAllPrefixes) {
                 discordDesc += `**${fieldKey.charAt(0).toUpperCase() + fieldKey.slice(1)}:** ${String(displayValue).substring(0, 100)}\n`;
-            } else {
+                    } else {
                 discordDesc += `${String(displayValue).substring(0, 1000)}\n`;
-            }
-        }
-    });
+                    }
+                }
+            });
     discordPreviewDescription.innerHTML = discordDesc.trim().replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
 
     // Telegram Preview
@@ -986,7 +1025,7 @@ function renderEditFeedPreview(feedObject) {
             const displayValue = textVersion || value;
             if (showAllPrefixes) {
                 telegramMsg += `*${fieldKey.charAt(0).toUpperCase() + fieldKey.slice(1)}:* ${String(displayValue).substring(0, 100)}\n`;
-            } else {
+    } else {
                 telegramMsg += `${String(displayValue).substring(0, 1000)}\n`;
             }
         }
