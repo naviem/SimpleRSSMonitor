@@ -35,13 +35,71 @@ function parseJsonFields(obj, fieldsToParse, forClient = false) {
 
 async function initializeDatabase() {
     try {
-        console.log('Running database migrations...');
-        await db.migrate.latest();
-        console.log('Database migrations are up to date.');
+        // Check if database file exists and has tables
+        const hasTable = await db.schema.hasTable('feeds');
+        
+        if (!hasTable) {
+            console.log('Fresh installation detected. Creating database schema...');
+            // For fresh install, create tables directly without migrations
+            await createTables();
+            console.log('Database schema created successfully.');
+        } else {
+            console.log('Existing database detected. Running migrations...');
+            await db.migrate.latest();
+            console.log('Database migrations are up to date.');
+        }
     } catch (error) {
-        console.error('Error running database migrations:', error);
+        console.error('Error initializing database:', error);
         process.exit(1); 
     }
+}
+
+async function createTables() {
+    // Create feeds table
+    await db.schema.createTable('feeds', (table) => {
+        table.increments('id').primary();
+        table.string('name').notNullable();
+        table.string('url').notNullable().unique();
+        table.string('selectedFields').defaultTo('[]');
+        table.string('associatedIntegrations').defaultTo('[]');
+        table.string('history').defaultTo('[]');
+        table.string('availableFields').defaultTo('[]');
+        table.string('sampleItems').defaultTo('[]');
+        table.boolean('showAllPrefixes').defaultTo(false);
+        table.timestamps(true, true);
+    });
+
+    // Create integrations table
+    await db.schema.createTable('integrations', (table) => {
+        table.increments('id').primary();
+        table.string('name').notNullable();
+        table.string('type').notNullable();
+        table.string('config').notNullable();
+        table.boolean('enabled').defaultTo(true);
+        table.timestamps(true, true);
+    });
+
+    // Create keyword_routes table
+    await db.schema.createTable('keyword_routes', (table) => {
+        table.increments('id').primary();
+        table.string('keyword').notNullable();
+        table.integer('feed_id').unsigned().references('id').inTable('feeds').onDelete('CASCADE');
+        table.string('integration_name').notNullable();
+        table.boolean('enabled').defaultTo(true);
+        table.timestamps(true, true);
+    });
+
+    // Create stats table
+    await db.schema.createTable('stats', (table) => {
+        table.increments('id').primary();
+        table.integer('feed_id').unsigned().references('id').inTable('feeds').onDelete('CASCADE');
+        table.string('feed_name').notNullable();
+        table.string('feed_url').notNullable();
+        table.integer('data_transferred').defaultTo(0);
+        table.integer('scan_count').defaultTo(0);
+        table.timestamp('last_scan').nullable();
+        table.timestamps(true, true);
+    });
 }
 
 async function loadFeeds() {
