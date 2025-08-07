@@ -55,25 +55,30 @@ async function initializeDatabase() {
 async function createTables() {
     // Create feeds table
     await db.schema.createTable('feeds', (table) => {
-        table.increments('id').primary();
-        table.string('name').notNullable();
+        table.string('id').primary();
+        table.string('title').notNullable();
         table.string('url').notNullable().unique();
-        table.string('selectedFields').defaultTo('[]');
-        table.string('associatedIntegrations').defaultTo('[]');
-        table.string('history').defaultTo('[]');
-        table.string('availableFields').defaultTo('[]');
-        table.string('sampleItems').defaultTo('[]');
+        table.integer('interval').defaultTo(60);
+        table.string('status').defaultTo('pending');
+        table.text('statusDetails').defaultTo('');
+        table.timestamp('lastChecked');
+        table.text('history').defaultTo('[]'); // Store as JSON string
+        table.text('selectedFields').defaultTo(JSON.stringify(['title', 'link'])); // Store as JSON string
+        table.text('availableFields').defaultTo('[]'); // Store as JSON string
+        table.text('sampleItems').defaultTo('[]'); // Store 1-2 sample full items as JSON string
+        table.text('associatedIntegrations').defaultTo('[]'); // Store array of associated integration IDs as JSON
         table.boolean('showAllPrefixes').defaultTo(false);
         table.timestamps(true, true);
     });
 
     // Create integrations table
     await db.schema.createTable('integrations', (table) => {
-        table.increments('id').primary();
+        table.string('id').primary();
         table.string('name').notNullable();
-        table.string('type').notNullable();
-        table.string('config').notNullable();
-        table.boolean('enabled').defaultTo(true);
+        table.string('type').notNullable(); // 'discord' or 'telegram'
+        table.string('webhookUrl'); // For Discord
+        table.string('token');      // For Telegram
+        table.string('chatId');     // For Telegram
         table.timestamps(true, true);
     });
 
