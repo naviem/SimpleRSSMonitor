@@ -108,11 +108,13 @@ async function fetchAndProcessFeed(feed, io, isInitialFetch = false) {
 
                     feed.history.push(itemIdentifier);
                     newItemsFound++;
-                     io.emit('new_feed_item', { 
-                        feedId: feed.id,
-                        feedTitle: feed.title,
-                        item: { title: item.title, link: item.link, guid: item.guid }
-                    });
+                    if (io && io.emit) {
+                        io.emit('new_feed_item', { 
+                            feedId: feed.id,
+                            feedTitle: feed.title,
+                            item: { title: item.title, link: item.link, guid: item.guid }
+                        });
+                    }
                 }
             }
             // Add all other items from initial fetch to history silently
@@ -170,11 +172,13 @@ async function fetchAndProcessFeed(feed, io, isInitialFetch = false) {
                     // Restore original integrations
                     feed.associatedIntegrations = originalIntegrations;
 
-                    io.emit('new_feed_item', { 
-                        feedId: feed.id,
-                        feedTitle: feed.title,
-                        item: { title: item.title, link: item.link, guid: item.guid }
-                    });
+                    if (io && io.emit) {
+                        io.emit('new_feed_item', { 
+                            feedId: feed.id,
+                            feedTitle: feed.title,
+                            item: { title: item.title, link: item.link, guid: item.guid }
+                        });
+                    }
                 }
             }
         }
