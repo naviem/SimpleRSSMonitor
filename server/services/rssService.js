@@ -72,60 +72,66 @@ async function fetchAndProcessFeed(feed, io, isInitialFetch = false) {
 
         if (isInitialFetch) {
             console.log(`Initial fetch for ${feed.title}. Processing up to 2 newest items for notification.`);
-            // Use the already sorted itemsToProcessForHistory
-            const newestTwoItems = itemsToProcessForHistory.slice(0, 2);
-            for (const item of newestTwoItems) { // item here is already processed
-                const itemIdentifier = item.guid || item.link || item.title; // Use processed item's ID fields
-                if (!itemIdentifier) continue;
-
-                if (!feed.history.includes(itemIdentifier)) {
-                    console.log(`Sending initial notification for ${feed.title}: ${item.title}`);
-                    
-                    // Create content string for keyword matching
-                    const content = [
-                        item.title,
-                        item.content,
-                        item.description,
-                        item.summary
-                    ].filter(Boolean).join(' ');
-
-                    // Get matching integration IDs
-                    const matchingIntegrationIds = keywordRouteService.matchKeywords(content, keywordRoutes);
-                    
-                    // Use matching integrations or fall back to default
-                    const targetIntegrationIds = matchingIntegrationIds.length > 0 
-                        ? matchingIntegrationIds 
-                        : feed.associatedIntegrations;
-
-                    // Update feed's associated integrations temporarily for this notification
-                    const originalIntegrations = feed.associatedIntegrations;
-                    feed.associatedIntegrations = targetIntegrationIds;
-
-                    notifyIntegrationsForFeed(feed, item);
-                    
-                    // Restore original integrations
-                    feed.associatedIntegrations = originalIntegrations;
-
-                    feed.history.push(itemIdentifier);
-                    newItemsFound++;
-                    if (io && io.emit) {
-                        io.emit('new_feed_item', { 
-                            feedId: feed.id,
-                            feedTitle: feed.title,
-                            item: { title: item.title, link: item.link, guid: item.guid }
-                        });
-                    }
-                }
-            }
-            // Add all other items from initial fetch to history silently
-            for (const item of itemsToProcessForHistory) { // Iterate all sorted processed items
+            
+            // First, add ALL items to history silently (to prevent future notifications)
+            for (const item of itemsToProcessForHistory) {
                 const itemIdentifier = item.guid || item.link || item.title;
                 if (!itemIdentifier) continue;
                 if (!feed.history.includes(itemIdentifier)) {
                     feed.history.push(itemIdentifier);
                 }
             }
-             if (feed.history.length > 200) { // Cap history
+            
+            // Then, send notifications for only the 2 newest items
+            const newestTwoItems = itemsToProcessForHistory.slice(0, 2);
+            let notificationsSent = 0;
+            
+            for (const item of newestTwoItems) {
+                if (notificationsSent >= 2) break; // Safety check
+                
+                const itemIdentifier = item.guid || item.link || item.title;
+                if (!itemIdentifier) continue;
+
+                console.log(`Sending initial notification for ${feed.title}: ${item.title}`);
+                
+                // Create content string for keyword matching
+                const content = [
+                    item.title,
+                    item.content,
+                    item.description,
+                    item.summary
+                ].filter(Boolean).join(' ');
+
+                // Get matching integration IDs
+                const matchingIntegrationIds = keywordRouteService.matchKeywords(content, keywordRoutes);
+                
+                // Use matching integrations or fall back to default
+                const targetIntegrationIds = matchingIntegrationIds.length > 0 
+                    ? matchingIntegrationIds 
+                    : feed.associatedIntegrations;
+
+                // Update feed's associated integrations temporarily for this notification
+                const originalIntegrations = feed.associatedIntegrations;
+                feed.associatedIntegrations = targetIntegrationIds;
+
+                notifyIntegrationsForFeed(feed, item);
+                
+                // Restore original integrations
+                feed.associatedIntegrations = originalIntegrations;
+
+                newItemsFound++;
+                notificationsSent++;
+                
+                if (io && io.emit) {
+                    io.emit('new_feed_item', { 
+                        feedId: feed.id,
+                        feedTitle: feed.title,
+                        item: { title: item.title, link: item.link, guid: item.guid }
+                    });
+                }
+            }
+            
+            if (feed.history.length > 200) { // Cap history
                 feed.history.splice(0, feed.history.length - 200);
             }
         } else {

@@ -30,6 +30,9 @@ function parseJsonFields(obj, fieldsToParse, forClient = false) {
     if (newObj.hasOwnProperty('showAllPrefixes')) {
         newObj.showAllPrefixes = !!newObj.showAllPrefixes; // Ensure it's a boolean (0/1 from DB becomes false/true)
     }
+    if (newObj.hasOwnProperty('paused')) {
+        newObj.paused = !!newObj.paused; // Ensure it's a boolean (0/1 from DB becomes false/true)
+    }
     return newObj;
 }
 
@@ -44,7 +47,10 @@ async function initializeDatabase() {
             await createTables();
             console.log('Database schema created successfully.');
         } else {
-            console.log('Existing database detected. Schema is already up to date.');
+            console.log('Existing database detected. Running migrations to ensure schema is up to date...');
+            // Run migrations for existing databases to add any missing columns
+            await db.migrate.latest();
+            console.log('Database migrations completed.');
         }
     } catch (error) {
         console.error('Error initializing database:', error);
@@ -68,6 +74,7 @@ async function createTables() {
         table.text('sampleItems').defaultTo('[]'); // Store 1-2 sample full items as JSON string
         table.text('associatedIntegrations').defaultTo('[]'); // Store array of associated integration IDs as JSON
         table.boolean('showAllPrefixes').defaultTo(false);
+        table.boolean('paused').defaultTo(false);
         table.timestamps(true, true);
     });
 

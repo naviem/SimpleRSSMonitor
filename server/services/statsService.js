@@ -28,13 +28,20 @@ async function initializeStatsTable() {
 async function recordFeedStats(feedId, stats) {
     try {
         console.log('Recording stats for feed:', feedId, stats);
-        await db('feed_stats').insert({
+        const insertData = {
             feed_id: feedId,
             items_processed: stats.itemsProcessed || 0,
             bytes_transferred: stats.bytesTransferred || 0,
             processing_time_ms: stats.processingTimeMs || 0
-        });
+        };
+        console.log('Inserting data:', insertData);
+        
+        await db('feed_stats').insert(insertData);
         console.log('Stats recorded successfully');
+        
+        // Verify the data was inserted
+        const inserted = await db('feed_stats').where({ feed_id: feedId }).orderBy('timestamp', 'desc').first();
+        console.log('Verification - inserted record:', inserted);
     } catch (error) {
         console.error('Error recording feed stats:', error);
     }
@@ -123,32 +130,49 @@ async function clearStats() {
 
 // Summary stats for all feeds for a given range
 async function getFeedSummary(range) {
+    console.log('getFeedSummary called with range:', range);
+    
     // Get all feeds (for title)
     const feeds = await db('feeds').select('id', 'title', 'url');
+    console.log('Found feeds:', feeds);
+    
     // Build time filter
     const now = new Date();
     let since;
     if (range === 'daily') {
+        // Start of today in local time
         since = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     } else if (range === 'weekly') {
-        since = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
+        // 7 days ago in local time
+        since = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
     } else if (range === 'monthly') {
+        // Start of this month in local time
         since = new Date(now.getFullYear(), now.getMonth(), 1);
     } else {
         since = null;
     }
+    
+    console.log('Time filter - since:', since ? since.toISOString() : 'null');
+    
     // Query stats
     let statsQuery = db('feed_stats')
         .select('feed_id')
         .sum({ total_bytes: 'bytes_transferred' })
         .count({ scan_count: 'id' })
         .groupBy('feed_id');
+    
     if (since) {
-        statsQuery = statsQuery.where('timestamp', '>=', since.toISOString());
+        // Use a more reliable date comparison for SQLite
+        const dateString = since.toISOString().split('T')[0]; // YYYY-MM-DD format
+        console.log('Using date filter:', dateString);
+        statsQuery = statsQuery.whereRaw('DATE(timestamp) >= ?', [dateString]);
     }
+    
     const stats = await statsQuery;
+    console.log('Raw stats from database:', stats);
+    
     // Merge with feeds
-    return feeds.map(feed => {
+    const result = feeds.map(feed => {
         const stat = stats.find(s => s.feed_id === feed.id) || {};
         return {
             id: feed.id,
@@ -157,6 +181,9 @@ async function getFeedSummary(range) {
             scan_count: Number(stat.scan_count) || 0
         };
     });
+    
+    console.log('Final result:', result);
+    return result;
 }
 
 module.exports = {
