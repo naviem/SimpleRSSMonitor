@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RSS Feeds - Simple RSS Monitor</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <a href="/" class="navbar-brand" id="logo">
+                <span class="logo-icon" aria-hidden="true">
+                    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align: middle;">
+                        <circle cx="14" cy="14" r="14" fill="#3B82F6"/>
+                        <path d="M8.5 19.5C8.5 20.3284 9.17157 21 10 21C10.8284 21 11.5 20.3284 11.5 19.5C11.5 18.6716 10.8284 18 10 18C9.17157 18 8.5 18.6716 8.5 19.5Z" fill="white"/>
+                        <path d="M8 14C13.5228 14 18 18.4772 18 24" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                        <path d="M8 10C17.3888 10 25 17.6112 25 27" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </span>
+                <span class="logo-text">Simple <span class="logo-accent">RSS</span> Monitor</span>
+            </a>
+            <ul class="navbar-nav">
+                <li><a href="/">Feeds</a></li>
+                <li><a href="/integrations">Integrations</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container main-content">
+        <header>
+            <h1>Feeds</h1>
+            <button id="addFeedBtn" class="btn btn-primary">+ Add Feed</button>
+        </header>
+
+        <!-- Add Feed Modal -->
+        <div id="addFeedModal" class="modal">
+            <div class="modal-content">
+                <span class="close-button" id="closeAddFeedModal">×</span>
+                <h2 id="addFeedModalTitle">Add New Feed</h2>
+                <form id="addFeedForm">
+                    <input type="hidden" id="addFeedId" value="">
+                    <div>
+                        <label for="addFeedTitle">Title:</label>
+                        <input type="text" id="addFeedTitleInput" required>
+                    </div>
+                    <div>
+                        <label for="addFeedUrl">RSS Feed URL:</label>
+                        <input type="url" id="addFeedUrlInput" required>
+                    </div>
+                    <div>
+                        <label for="addFeedInterval">Check Interval (minutes):</label>
+                        <input type="number" id="addFeedIntervalInput" min="1" value="60" required>
+                    </div>
+                    <div class="form-group toggle-switch-container" id="addFeedShowAllPrefixesToggleContainer" style="display: none;">
+                        <input type="checkbox" id="addFeedShowAllPrefixesInput" name="showAllPrefixes" class="custom-toggle">
+                        <label for="addFeedShowAllPrefixesInput">Show field names for all selected fields (e.g., "Summary: ...")</label>
+                    </div>
+                    <div id="addFeedFieldsSection" style="display: none;">
+                        <h3 class="modal-section-heading">Select Fields for Notifications:</h3>
+                        <div id="addFeedFieldsCheckboxes" class="checkbox-list-container"></div>
+                    </div>
+                    <div id="addFeedIntegrationsSection" style="margin-top: 20px;">
+                        <h3 class="modal-section-heading">Select Integrations for Notifications:</h3>
+                        <div id="addFeedIntegrationsCheckboxes" class="checkbox-list-container"></div>
+                    </div>
+                    <div id="addFeedPreviewSection" style="margin-top: 20px; display: none;">
+                        <h4>Notification Preview (based on a sample item):</h4>
+                        <button type="button" id="refreshAddFeedPreviewBtn" class="btn btn-secondary btn-sm" style="margin-bottom: 10px;">Refresh Preview</button>
+                        <div class="preview-container">
+                            <div class="discord-preview">
+                                <h5>Discord Preview:</h5>
+                                <div class="discord-embed">
+                                    <div class="discord-embed-author">No sample data for preview.</div>
+                                    <div class="discord-embed-title"></div>
+                                    <div class="discord-embed-description"></div>
+                                    <div class="discord-embed-footer">Simple RSS Monitor</div>
+                                </div>
+                            </div>
+                            <div class="telegram-preview" style="margin-top: 15px;">
+                                <h5>Telegram Preview:</h5>
+                                <pre class="telegram-message-content">No sample data for preview.</pre>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save Feed</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Edit Feed Modal -->
+        <div id="editFeedModal" class="modal">
+            <div class="modal-content">
+                <span class="close-button" id="closeEditFeedModal">×</span>
+                <h2 id="editFeedModalTitle">Edit Feed</h2>
+                <form id="editFeedForm">
+                    <input type="hidden" id="editFeedId" value="">
+                    <div>
+                        <label for="editFeedTitle">Title:</label>
+                        <input type="text" id="editFeedTitleInput" required>
+                    </div>
+                    <div>
+                        <label for="editFeedUrl">RSS Feed URL:</label>
+                        <input type="url" id="editFeedUrlInput" required>
+                    </div>
+                    <div>
+                        <label for="editFeedInterval">Check Interval (minutes):</label>
+                        <input type="number" id="editFeedIntervalInput" min="1" value="60" required>
+                    </div>
+
+                    <div class="collapsible-section">
+                        <div class="collapsible-header">
+                            <div class="header-content">
+                                <i class="fas fa-list-check header-icon"></i>
+                                <h3 class="collapsible-title">Select Fields for Notifications</h3>
+                            </div>
+                            <span class="collapsible-icon">+</span>
+                        </div>
+                        <div class="collapsible-content">
+                            <div class="form-group toggle-switch-container" id="editFeedShowAllPrefixesToggleContainer" style="margin-bottom: 15px;">
+                                <input type="checkbox" id="editFeedShowAllPrefixesInput" name="showAllPrefixes" class="custom-toggle">
+                                <label for="editFeedShowAllPrefixesInput">Show field names for all selected fields (e.g., "Summary: ...")</label>
+                            </div>
+                            <div id="editFeedFieldsCheckboxes" class="checkbox-list-container"></div>
+                        </div>
+                    </div>
+
+                    <div class="collapsible-section">
+                        <div class="collapsible-header">
+                            <div class="header-content">
+                                <i class="fas fa-bell header-icon"></i>
+                                <h3 class="collapsible-title">Select Integrations for Notifications</h3>
+                            </div>
+                            <span class="collapsible-icon">+</span>
+                        </div>
+                        <div class="collapsible-content">
+                            <div id="editFeedIntegrationsSection" style="margin-top: 20px;">
+                                <div id="editFeedIntegrationsCheckboxes" class="checkbox-list-container"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="collapsible-section">
+                        <div class="collapsible-header">
+                            <div class="header-content">
+                                <i class="fas fa-filter header-icon"></i>
+                                <h3 class="collapsible-title">Keyword Routing Rules</h3>
+                            </div>
+                            <span class="collapsible-icon">+</span>
+                        </div>
+                        <div class="collapsible-content">
+                            <div id="feedKeywordRoutesSection" style="margin-top: 20px; display: block;">
+                                <div class="keyword-routes-container">
+                                    <div class="keyword-routes-list" id="keywordRoutesList">
+                                        <!-- Keyword routes will be listed here -->
+                                    </div>
+                                    <div class="add-keyword-route">
+                                        <button type="button" id="addKeywordRouteBtn" class="btn btn-secondary">+ Add Keyword Rule</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="editFeedPreviewSection" style="display: none;">
+                        <div class="collapsible-section">
+                            <div class="collapsible-header">
+                                <div class="header-content">
+                                    <i class="fab fa-discord header-icon"></i>
+                                    <h3 class="collapsible-title">Discord Preview</h3>
+                                </div>
+                                <span class="collapsible-icon">+</span>
+                            </div>
+                            <div class="collapsible-content">
+                                <div class="discord-preview">
+                                    <div class="discord-embed">
+                                        <div class="discord-embed-author">No sample data for preview.</div>
+                                        <div class="discord-embed-title"></div>
+                                        <div class="discord-embed-description"></div>
+                                        <div class="discord-embed-footer">Simple RSS Monitor</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="collapsible-section">
+                            <div class="collapsible-header">
+                                <div class="header-content">
+                                    <i class="fab fa-telegram-plane header-icon"></i>
+                                    <h3 class="collapsible-title">Telegram Preview</h3>
+                                </div>
+                                <span class="collapsible-icon">+</span>
+                            </div>
+                            <div class="collapsible-content">
+                                <div class="telegram-preview" style="margin-top: 15px;">
+                                    <pre class="telegram-message-content">No sample data for preview.</pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Add Keyword Route Modal -->
+        <div id="keywordRouteModal" class="modal">
+            <div class="modal-content">
+                <span class="close-button" id="closeKeywordRouteModal">&times;</span>
+                <h2>Add Keyword Rule</h2>
+                <p class="modal-explanation">
+                    Create a keyword rule to route feed items to a specific integration when the keyword or pattern is found in the item's content. You can test your rule below before saving.
+                </p>
+                <div class="modal-info-box">
+                    <strong>Note:</strong> The <b>Test Rule</b> button only checks if your keyword or pattern would match the sample text below. It does <b>not</b> send a real notification. Notifications are only sent when a real feed item matches a saved rule during normal feed checks.
+                </div>
+                <form id="keywordRouteForm">
+                    <input type="hidden" id="keywordRouteId">
+                    <input type="hidden" id="feedId">
+                    <div>
+                        <label for="keywordInput">Keyword or Pattern:</label>
+                        <input type="text" id="keywordInput" required>
+                        <div class="keyword-options">
+                            <input type="checkbox" id="isRegexInput" name="isRegex">
+                            <label for="isRegexInput">Use as regular expression</label>
+                            <input type="checkbox" id="caseSensitiveInput" name="caseSensitive">
+                            <label for="caseSensitiveInput">Case sensitive</label>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="fieldSelect">Fields to Match:</label>
+                        <select id="fieldSelect" multiple size="5" class="dark-multiselect">
+                            <option value="all">All Fields (default)</option>
+                            <option value="title">Title</option>
+                            <option value="summary">Summary</option>
+                            <option value="content">Content</option>
+                            <option value="description">Description</option>
+                            <option value="contentSnippet">Content Snippet</option>
+                        </select>
+                        <div class="field-select-hint">Hold Ctrl (Windows) or Cmd (Mac) to select multiple fields. If 'All Fields' is selected, other fields will be ignored.</div>
+                    </div>
+                    <div>
+                        <label for="targetIntegrationSelect">Send to Integration:</label>
+                        <select id="targetIntegrationSelect" required>
+                            <!-- Available integrations will be populated here -->
+                        </select>
+                    </div>
+                    <div class="test-keyword-section" style="margin-top: 15px;">
+                        <h4>Test Keyword Rule:</h4>
+                        <div class="test-keyword-row">
+                            <textarea id="testContentInput" placeholder="Enter sample content to test the keyword rule..." rows="4"></textarea>
+                            <button type="button" id="testKeywordBtn" class="btn btn-secondary">Test Rule</button>
+                        </div>
+                        <div id="testResult" style="margin-top: 10px;"></div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save Rule</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Keyword Route Delete Confirmation Modal -->
+        <div id="keywordRouteDeleteModal" class="modal">
+            <div class="modal-content" style="max-width: 400px;">
+                <span class="close-button">&times;</span>
+                <h3>Delete Keyword Rule</h3>
+                <p>Are you sure you want to delete this keyword rule?</p>
+                <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px;">
+                    <button id="cancelKeywordRouteDeleteBtn" class="btn btn-secondary">Cancel</button>
+                    <button id="confirmKeywordRouteDeleteBtn" class="btn btn-danger">Delete</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="feed-list-container">
+            <h2>Current Feeds (<span id="feedCount">0</span>)</h2>
+            <div class="feed-actions-toolbar">
+                <input type="text" id="searchFeedsInput" placeholder="Search feeds by title or url">
+                <!-- <button id="filterFeedsBtn">Filter by Status</button> -->
+            </div>
+            <table id="feedsTable">
+                <thead>
+                    <tr>
+                        <th>STATUS</th>
+                        <th>TITLE</th>
+                        <th>URL</th>
+                        <th>INTERVAL (min)</th>
+                        <th>LAST CHECKED</th>
+                        <th class="actions-header">ACTIONS</th>
+                    </tr>
+                </thead>
+                <tbody id="feedsTableBody">
+                    <!-- Feed rows will be inserted here by JavaScript -->
+                </tbody>
+            </table>
+            <button id="loadMoreFeedsBtn" style="display: none;">Load More</button>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/main.js"></script>
+</body>
+</html> 

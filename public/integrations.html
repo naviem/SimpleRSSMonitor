@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Integrations - Simple RSS Monitor</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <a href="/" class="navbar-brand">SimpleRSSMonitor</a>
+            <ul class="navbar-nav">
+                <li><a href="/">Feeds</a></li>
+                <li><a href="/integrations">Integrations</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container main-content">
+        <header>
+            <h1>Integrations</h1>
+            <button id="addIntegrationBtn" class="btn btn-primary">+ Add Integration</button>
+        </header>
+
+        <!-- Add/Edit Integration Modal (hidden by default) -->
+        <div id="integrationModal" class="modal">
+            <div class="modal-content">
+                <span class="close-button">&times;</span>
+                <h2 id="integrationModalTitle">Add New Integration</h2>
+                <form id="integrationForm">
+                    <input type="hidden" id="integrationId">
+                    <div>
+                        <label for="integrationName">Name:</label>
+                        <input type="text" id="integrationNameInput" required>
+                    </div>
+                    <div>
+                        <label for="integrationType">Type:</label>
+                        <select id="integrationTypeInput">
+                            <option value="discord">Discord</option>
+                            <option value="telegram">Telegram</option>
+                        </select>
+                    </div>
+                    <div id="discordWebhookUrlGroup">
+                        <label for="discordWebhookUrl">Discord Webhook URL:</label>
+                        <input type="url" id="discordWebhookUrlInput">
+                    </div>
+                    <div id="telegramBotTokenGroup" style="display: none;">
+                        <label for="telegramBotToken">Telegram Bot Token:</label>
+                        <input type="text" id="telegramBotTokenInput">
+                    </div>
+                    <div id="telegramChatIdGroup" style="display: none;">
+                        <label for="telegramChatId">Telegram Chat ID:</label>
+                        <input type="text" id="telegramChatIdInput">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save Integration</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="integrations-list-container">
+            <h2>Current Integrations (<span id="integrationCount">0</span>)</h2>
+            <table id="integrationsTable">
+                <thead>
+                    <tr>
+                        <th>NAME</th>
+                        <th>TYPE</th>
+                        <th>DETAILS</th>
+                        <th>ACTIONS</th>
+                    </tr>
+                </thead>
+                <tbody id="integrationsTableBody">
+                    <!-- Integration rows will be inserted here by JavaScript -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/main.js"></script>
+</body>
+</html> 

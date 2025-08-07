@@ -1,0 +1,925 @@
+/* General Body Styles */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    margin: 0;
+    background-color: #1A202C; /* Dark background */
+    color: #E2E8F0; /* Light text */
+    line-height: 1.6;
+}
+
+/* Container */
+.container {
+    width: 90%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* Navbar */
+.navbar {
+    background-color: #2D3748; /* Slightly lighter dark shade */
+    padding: 1rem 0;
+    border-bottom: 1px solid #4A5568;
+}
+
+.navbar .container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.navbar-brand {
+    color: #E2E8F0;
+    text-decoration: none;
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+.navbar-nav {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+}
+
+.navbar-nav li {
+    margin-left: 20px;
+}
+
+.navbar-nav a {
+    color: #A0AEC0; /* Muted text color */
+    text-decoration: none;
+    font-size: 1rem;
+}
+
+.navbar-nav a:hover,
+.navbar-nav a.active {
+    color: #E2E8F0; /* Brighter on hover/active */
+}
+
+/* Main Content Area */
+.main-content header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #4A5568; 
+}
+
+.main-content h1 {
+    color: #E2E8F0;
+    margin: 0;
+}
+
+/* Buttons */
+.btn {
+    padding: 10px 15px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.btn-primary {
+    background-color: #3B82F6; /* Blue accent */
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #2563EB;
+}
+
+.btn-secondary {
+    background-color: #4A5568; /* Darker gray */
+    color: #E2E8F0;
+}
+
+.btn-secondary:hover {
+    background-color: #2D3748;
+}
+
+.btn-danger {
+    background-color: #E53E3E; /* Red for delete */
+    color: white;
+}
+
+.btn-danger:hover {
+    background-color: #C53030;
+}
+
+/* Tables */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    background-color: #2D3748; /* Table background */
+}
+
+table th, table td {
+    padding: 12px 15px;
+    border: 1px solid #4A5568; /* Borders within table */
+    text-align: left;
+    color: #CBD5E0; /* Table text */
+}
+
+table th {
+    background-color: #1A202C; /* Header background - darker */
+    color: #A0AEC0; /* Header text - muted */
+    font-weight: bold;
+}
+
+table tr:nth-child(even) {
+    /* background-color: #2C3E50; */ /* Optional: slightly different row color 
+        Using #2D3748 as base, so maybe not needed if distinct enough from #1A202C (page bg)
+    */
+}
+
+table td a {
+    color: #63B3ED; /* Light blue for links in table */
+    text-decoration: none;
+}
+table td a:hover {
+    text-decoration: underline;
+}
+
+.status-icon {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 5px;
+}
+
+.status-ok {
+    background-color: #38A169; /* Green */
+}
+
+.status-error {
+    background-color: #E53E3E; /* Red */
+}
+
+.status-pending {
+    background-color: #ECC94B; /* Yellow */
+}
+
+/* Forms and Modals */
+.modal {
+    display: none; /* Hidden by default */
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.6); /* Dim background */
+}
+
+.modal-content {
+    background-color: #2D3748; /* Dark modal background */
+    margin: 10% auto;
+    padding: 25px;
+    border: 1px solid #4A5568;
+    border-radius: 8px;
+    width: 80%;
+    max-width: 600px;
+    color: #E2E8F0;
+    position: relative;
+}
+
+.close-button {
+    color: #A0AEC0;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    position: absolute;
+    top: 10px;
+    right: 20px;
+}
+
+.close-button:hover,
+.close-button:focus {
+    color: #E2E8F0;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+form label {
+    display: block;
+    margin-bottom: 5px;
+    color: #A0AEC0; /* Lighter label text */
+}
+
+form input[type="text"],
+form input[type="url"],
+form input[type="number"],
+form select {
+    width: calc(100% - 22px); /* Full width minus padding and border */
+    padding: 10px;
+    border: 1px solid #4A5568;
+    border-radius: 4px;
+    background-color: #1A202C; /* Input background */
+    color: #E2E8F0; /* Input text color */
+}
+
+form input[type="text"]:focus,
+form input[type="url"]:focus,
+form input[type="number"]:focus,
+form select:focus {
+    outline: none;
+    border-color: #3B82F6; /* Blue border on focus */
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+}
+
+/* Styles for the Edit Feed Modal Sections */
+
+/* Container for the toggle switch */
+.toggle-switch-container {
+    display: flex;
+    align-items: center;
+    margin-bottom: 25px; /* Increased bottom margin */
+    background-color: #222b3c; /* Slightly different background for this specific control */
+    padding: 15px;
+    border-radius: 6px;
+    border: 1px solid #3a455c; /* Subtle border */
+}
+
+.toggle-switch-container label {
+    margin-left: 10px;
+    font-size: 0.95rem;
+    color: #cdd3da; /* Slightly brighter label for emphasis */
+    cursor: pointer;
+    flex-grow: 1; /* Allow label to take available space */
+}
+
+/* Custom styled checkbox for a toggle-like appearance */
+input[type="checkbox"].custom-toggle {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    width: 40px; /* Width of the toggle background */
+    height: 22px; /* Height of the toggle background */
+    background-color: #4A5568; /* Off state background */
+    border-radius: 11px; /* Makes it pill-shaped */
+    position: relative;
+    cursor: pointer;
+    outline: none;
+    transition: background-color 0.3s ease;
+    flex-shrink: 0; /* Prevent toggle from shrinking */
+}
+
+input[type="checkbox"].custom-toggle::before {
+    content: '';
+    position: absolute;
+    width: 18px; /* Diameter of the circle */
+    height: 18px; /* Diameter of the circle */
+    background-color: white;
+    border-radius: 50%;
+    top: 2px; /* Centering the circle */
+    left: 2px; /* Starting position of the circle */
+    transition: transform 0.3s ease;
+}
+
+input[type="checkbox"].custom-toggle:checked {
+    background-color: #3B82F6; /* On state background - Blue accent */
+}
+
+input[type="checkbox"].custom-toggle:checked::before {
+    transform: translateX(18px); /* Moves the circle to the right */
+}
+
+
+/* Section headings within the modal (e.g., "Select Fields...") */
+.modal-section-heading {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #A0AEC0;
+    margin-top: 20px;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #4A5568;
+}
+
+/* Styling for checkbox containers (fields and integrations) */
+.checkbox-list-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 20px; /* vertical and horizontal gap */
+    margin-bottom: 20px;
+    padding: 10px;
+    background-color: #222b3c; /* Subtle background for checkbox groups */
+    border-radius: 6px;
+    border: 1px solid #3a455c;
+}
+
+.checkbox-list-container .checkbox-item {
+    display: flex;
+    align-items: center;
+    background-color: #343e50;
+    border-radius: 4px;
+    padding: 8px 12px;
+    transition: background-color 0.2s ease;
+}
+
+.checkbox-list-container .checkbox-item:hover {
+    background-color: #3a455c;
+}
+
+.checkbox-list-container input[type="checkbox"] {
+    margin-right: 8px;
+    width: 16px; /* Custom size */
+    height: 16px;
+    accent-color: #3B82F6; /* Color for the checkmark/box itself */
+    cursor: pointer;
+}
+
+.checkbox-list-container label {
+    font-size: 0.9rem;
+    color: #CBD5E0;
+    cursor: pointer;
+    margin-bottom: 0; /* Override general form label margin */
+}
+
+
+/* Remove the complex old styles for #feedShowAllPrefixesInput if they exist */
+/* We'll rely on the .custom-toggle class applied via JS for the new toggle */
+
+#feedFieldsSection h3, /* Target existing h3 if used */
+#feedIntegrationsSection h3 /* Target existing h3 if used */
+ {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #A0AEC0;
+    margin-top: 20px;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #4A5568;
+}
+
+#feedFieldsCheckboxes,
+#feedIntegrationsCheckboxes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 15px; /* vertical and horizontal gap */
+    margin-bottom: 20px; /* Add some margin below the checkbox area */
+    padding: 10px;
+    background-color: #222b3c;
+    border-radius: 6px;
+    border: 1px solid #3a455c;
+}
+
+#feedFieldsCheckboxes div,
+#feedIntegrationsCheckboxes div {
+    display: flex;
+    align-items: center;
+    background-color: #2D3748;
+    padding: 8px 12px;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+    /* margin-bottom: 0; remove individual item margin if gap is sufficient */
+}
+
+#feedFieldsCheckboxes div:hover,
+#feedIntegrationsCheckboxes div:hover {
+    background-color: #3a455c;
+}
+
+
+#feedFieldsCheckboxes label,
+#feedIntegrationsCheckboxes label {
+    margin-left: 8px; /* Space between checkbox and label */
+    font-size: 0.9rem;
+    color: #CBD5E0;
+    cursor: pointer;
+    margin-bottom: 0; /* Reset default form label margin */
+}
+
+#feedFieldsCheckboxes input[type="checkbox"],
+#feedIntegrationsCheckboxes input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: #3B82F6; /* Modern way to color checkboxes */
+    cursor: pointer;
+    /* Remove margin if flex alignment handles it */
+}
+
+/* Search/Filter Bar */
+.feed-actions-toolbar {
+    margin-bottom: 20px;
+    display: flex;
+    gap: 10px;
+}
+
+.feed-actions-toolbar input[type="text"] {
+    flex-grow: 1;
+    padding: 10px;
+    border: 1px solid #4A5568;
+    border-radius: 4px;
+    background-color: #1A202C;
+    color: #E2E8F0;
+}
+
+/* Action buttons in table */
+.action-btn {
+    margin-right: 5px;
+    padding: 5px 8px;
+    font-size: 0.8rem;
+}
+
+/* Feed Preview Styles */
+#feedPreviewSection {
+    border-top: 1px solid #4A5568;
+    padding-top: 15px;
+}
+
+.preview-container {
+    padding: 10px;
+    background-color: #1A202C; /* Slightly darker than modal content for contrast */
+    border-radius: 5px;
+    border: 1px solid #4A5568;
+}
+
+.discord-preview .discord-embed {
+    background-color: #2D3748; /* Matches table background */
+    border-left: 4px solid #3B82F6; /* Blue accent color from .btn-primary */
+    padding: 10px;
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+
+.discord-preview .discord-embed-author {
+    font-size: 0.85em;
+    font-weight: bold;
+    margin-bottom: 4px;
+    color: #A0AEC0; /* Muted text */
+}
+
+.discord-preview .discord-embed-title {
+    font-weight: bold;
+    color: #E2E8F0; /* Light text */
+    margin-bottom: 6px;
+    font-size: 1.1em;
+}
+
+.discord-preview .discord-embed-description {
+    font-size: 0.95em;
+    line-height: 1.4;
+    margin-bottom: 8px;
+    white-space: pre-wrap; /* Preserve line breaks */
+    word-break: break-word;
+    color: #CBD5E0; /* Slightly less bright than main text */
+}
+
+.discord-preview .discord-embed-footer {
+    font-size: 0.75em;
+    color: #A0AEC0; /* Muted text */
+    margin-top: 8px;
+}
+
+.telegram-preview pre.telegram-message-content {
+    background-color: #2D3748;
+    padding: 10px;
+    border-radius: 4px;
+    font-family: monospace;
+    white-space: pre-wrap; /* Preserve line breaks and spaces */
+    word-break: break-all; /* Break long words/URLs */
+    font-size: 0.9em;
+    color: #CBD5E0;
+}
+
+#feedPreviewSection h5 {
+    margin-top: 0;
+    margin-bottom: 8px;
+    color: #A0AEC0;
+}
+
+/* Specific styling for the 'Show all prefixes' toggle and its label */
+/* This replaces the older, more complex ::before styles for #feedShowAllPrefixesInput */
+/* Ensure the input has class "custom-toggle" and its container has "toggle-switch-container" */
+
+/* Remove/reset old styles for #feedShowAllPrefixesInput that might conflict */
+.form-group > input[type="checkbox"]#feedShowAllPrefixesInput,
+.form-group > input[type="checkbox"]#feedShowAllPrefixesInput:checked,
+.form-group > input[type="checkbox"]#feedShowAllPrefixesInput::before,
+.form-group > input[type="checkbox"]#feedShowAllPrefixesInput:checked::before {
+    /* all: unset; <<< REMOVING THIS for the input itself and its pseudo-elements */
+    /* We will rely on appearance: none; in .custom-toggle and specificity */
+}
+
+.form-group > label[for="feedShowAllPrefixesInput"] {
+    all: unset; /* Keep for the label to reset its specific previous styles if any */
+    /* The new styles for the label will be applied via .toggle-switch-container label */
+}
+
+/* Add these styles to the existing CSS file */
+
+.keyword-routes-container {
+    padding: 0;
+    background-color: transparent;
+    border: none;
+    box-shadow: none;
+}
+
+.keyword-route-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #2d3748;
+    padding: 12px 15px;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    border-left: 4px solid #4a5a6a;
+    transition: all 0.2s ease-in-out;
+}
+
+.keyword-route-item:hover {
+    border-left-color: #63b3ed;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.route-info-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.route-summary {
+    display: flex;
+    align-items: center;
+}
+
+.route-keyword {
+    font-weight: bold;
+    color: #e2e8f0;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+.route-integration {
+    font-weight: bold;
+    color: #63b3ed;
+    margin-left: 8px;
+}
+
+.route-details {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.route-options .badge {
+    margin-right: 0;
+}
+
+.route-fields, .route-options {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.fields-label {
+    color: #a0aec0;
+    font-size: 0.9em;
+    font-weight: 500;
+}
+
+.badge {
+    display: inline-block;
+    padding: 0.25em 0.6em;
+    font-size: 75%;
+    font-weight: 700;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: baseline;
+    border-radius: 0.375rem;
+    margin-right: 5px;
+}
+
+.badge-info {
+    color: #fff;
+    background-color: #17a2b8;
+}
+
+.badge-warning {
+    color: #212529;
+    background-color: #ffc107;
+}
+
+.badge-secondary {
+    color: #fff;
+    background-color: #6c757d;
+}
+
+.route-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.keyword-options {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 18px;
+    align-items: center;
+}
+
+.keyword-options label {
+    margin-bottom: 0;
+    font-weight: normal;
+}
+
+.keyword-route-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.8em;
+    margin-left: 5px;
+}
+
+.badge-regex {
+    background-color: #e3f2fd;
+    color: #1976d2;
+}
+
+.badge-case-sensitive {
+    background-color: #fff3e0;
+    color: #f57c00;
+}
+
+.test-keyword-section {
+    background: #2D3748;
+    border-radius: 8px;
+    padding: 16px 14px 14px 14px;
+    margin-bottom: 18px;
+    border: 1px solid #4A5568;
+}
+.test-keyword-section h4, .test-keyword-section label {
+    color: #A0AEC0;
+}
+.test-keyword-row {
+    display: flex;
+    gap: 12px;
+    align-items: stretch;
+    margin-top: 8px;
+}
+#testContentInput {
+    background: #1A202C;
+    color: #E2E8F0;
+    border: 1px solid #4A5568;
+    width: 100%;
+    min-width: 220px;
+    min-height: 60px;
+    resize: vertical;
+    font-size: 1rem;
+    padding: 8px;
+    border-radius: 4px;
+}
+#testResult {
+    color: #E2E8F0;
+}
+#testKeywordBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: auto;
+    min-width: 90px;
+    min-height: 60px;
+    padding: 0 18px;
+    font-size: 1rem;
+    margin-left: 8px;
+    border-radius: 4px;
+    background: #4A5568;
+    color: #E2E8F0;
+    border: none;
+}
+#testKeywordBtn:hover {
+    background: #2D3748;
+}
+
+.keyword-routes-list {
+    display: flex;
+    flex-direction: column;
+    /* align-items: stretch; */
+    /* Removed justify-content and min-height for top alignment */
+}
+
+.add-keyword-route {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    margin-top: 15px;
+}
+
+#addKeywordRouteBtn {
+    background-color: #4caf50;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+#addKeywordRouteBtn:hover {
+    background-color: #45a049;
+}
+
+.modal-explanation {
+    color: #A0AEC0;
+    font-size: 1rem;
+    margin-bottom: 18px;
+}
+
+.modal-info-box {
+    background: #24304a;
+    color: #F6E05E;
+    border-left: 4px solid #ECC94B;
+    padding: 12px 16px;
+    margin-bottom: 18px;
+    border-radius: 6px;
+    font-size: 1rem;
+}
+
+.dark-multiselect {
+    background: #222b3c;
+    color: #E2E8F0;
+    border: 1px solid #4A5568;
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-size: 1rem;
+    width: 100%;
+    min-width: 180px;
+    margin-top: 4px;
+    margin-bottom: 6px;
+}
+.dark-multiselect option {
+    background: #2D3748;
+    color: #E2E8F0;
+}
+.field-select-hint {
+    color: #A0AEC0;
+    font-size: 0.95em;
+    margin-bottom: 8px;
+    margin-top: 2px;
+}
+
+/* Collapsible Sections */
+.collapsible-section {
+    margin-top: 15px;
+    margin-bottom: 10px;
+    border: none; /* Removed border */
+    border-radius: 0;
+    overflow: visible; /* Allow for clean look without containing border */
+}
+
+.collapsible-header {
+    display: flex;
+    justify-content: space-between; /* Pushes title and icon apart */
+    align-items: center;
+    padding: 12px 15px;
+    background-color: #28303e;
+    cursor: pointer;
+    user-select: none;
+    border-radius: 0;
+    transition: background-color 0.2s ease, border-radius 0.2s ease;
+}
+
+.header-content {
+    display: flex;
+    align-items: center;
+}
+
+.header-icon {
+    margin-right: 10px;
+    font-size: 1.1em;
+    width: 20px; /* Ensures alignment */
+    text-align: center;
+}
+
+.collapsible-header.active {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.collapsible-header:hover {
+    background-color: #4a5568;
+}
+
+.collapsible-icon {
+    font-size: 1.4em;
+    font-weight: bold;
+    transition: transform 0.2s ease-in-out;
+}
+
+.collapsible-header.active .collapsible-icon {
+    transform: rotate(45deg);
+}
+
+.collapsible-title {
+    margin: 0;
+    font-size: 1.1em;
+    font-weight: 600;
+}
+
+.collapsible-content {
+    display: none;
+    padding: 15px;
+    background-color: #384254; /* New background for content */
+    border-radius: 0;
+}
+
+.url-input-group {
+    display: flex;
+    gap: 10px;
+}
+
+.modal-content form label {
+    font-weight: bold;
+}
+
+/* Modal Input Styling Overrides */
+.modal-content form input[type="text"],
+.modal-content form input[type="url"],
+.modal-content form input[type="number"] {
+    background-color: #28303e;
+    border: none;
+    border-radius: 0;
+    width: 100%;
+    padding: 12px 15px;
+    box-sizing: border-box; /* Ensures padding doesn't add to width */
+    font-family: inherit; /* Ensure font matches */
+    font-size: 1.1em; /* Match collapsible header title */
+    color: #cbd5e0; /* Light gray for readability */
+}
+
+/* Remove inner containers for specific sections */
+.checkbox-list-container {
+    background: none;
+    border: none;
+    padding: 0;
+}
+
+.keyword-routes-list {
+    background-color: transparent;
+    border: none;
+    padding: 0;
+}
+
+/* --- Modern Logo Styles --- */
+#logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-decoration: none;
+    font-size: 1.7rem;
+    font-weight: 700;
+    letter-spacing: -1px;
+    color: #E2E8F0;
+    transition: color 0.2s;
+}
+#logo:hover {
+    color: #60A5FA;
+}
+.logo-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border-radius: 50%;
+    box-shadow: 0 2px 8px rgba(59,130,246,0.10);
+}
+.logo-text {
+    font-family: 'Segoe UI', 'Inter', 'Roboto', Arial, sans-serif;
+    font-weight: 700;
+    font-size: 1.25em;
+    letter-spacing: -0.5px;
+    color: #E2E8F0;
+    display: flex;
+    align-items: baseline;
+    gap: 2px;
+}
+.logo-accent {
+    color: #3B82F6;
+    font-weight: 900;
+    letter-spacing: 0.5px;
+}
+@media (max-width: 600px) {
+    #logo {
+        font-size: 1.1rem;
+        gap: 7px;
+    }
+    .logo-icon svg {
+        width: 20px;
+        height: 20px;
+    }
+    .logo-text {
+        font-size: 1em;
+    }
+} 
