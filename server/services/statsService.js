@@ -27,21 +27,15 @@ async function initializeStatsTable() {
 // Record feed processing stats
 async function recordFeedStats(feedId, stats) {
     try {
-        console.log('Recording stats for feed:', feedId, stats);
         const insertData = {
             feed_id: feedId,
             items_processed: stats.itemsProcessed || 0,
             bytes_transferred: stats.bytesTransferred || 0,
             processing_time_ms: stats.processingTimeMs || 0
         };
-        console.log('Inserting data:', insertData);
         
         await db('feed_stats').insert(insertData);
-        console.log('Stats recorded successfully');
-        
-        // Verify the data was inserted
-        const inserted = await db('feed_stats').where({ feed_id: feedId }).orderBy('timestamp', 'desc').first();
-        console.log('Verification - inserted record:', inserted);
+        // Only log errors, not successful stats recording
     } catch (error) {
         console.error('Error recording feed stats:', error);
     }

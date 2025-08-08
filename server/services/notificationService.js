@@ -62,7 +62,7 @@ async function sendDiscordNotification(webhookUrl, feedTitleFromFeedObject, item
         .setColor(0x0099FF)
         .setAuthor({ name: String(feedTitleFromFeedObject).substring(0, 250) })
         .setTimestamp(item.isoDate ? new Date(item.isoDate) : new Date()) // Keep timestamp logic
-        .setFooter({ text: 'Simple RSS Monitor', url: 'https://github.com/naviem/SimpleRSSMonitor' });
+        .setFooter({ text: 'Simple RSS Monitor' });
 
     if (itemTitle) {
         embed.setTitle(itemTitle);
@@ -125,9 +125,9 @@ async function sendDiscordNotification(webhookUrl, feedTitleFromFeedObject, item
             // avatar_url: "your_avatar_url.png", // Optional: customize bot avatar
             embeds: [embed.toJSON()],
         });
-        console.log(`Sent Discord notification for "${itemTitle || 'an item'}" from "${feedTitleFromFeedObject}"`);
+        console.log(`✓ Discord notification sent: "${itemTitle || 'an item'}" from "${feedTitleFromFeedObject}"`);
     } catch (error) {
-        console.error('Error sending Discord notification:', error.response ? JSON.stringify(error.response.data) : error.message);
+        console.error(`✗ Discord notification failed for "${feedTitleFromFeedObject}":`, error.response ? error.response.data.message : error.message);
     }
 }
 
@@ -197,17 +197,17 @@ async function sendTelegramNotification(botToken, chatId, feedTitleFromFeedObjec
     // Send message
     try {
         await bot.sendMessage(chatId, message.trim(), { parse_mode: 'MarkdownV2' });
-        console.log(`Sent Telegram notification for "${itemTitle || 'an item'}" from "${feedTitleFromFeedObject}"`);
+        console.log(`✓ Telegram notification sent: "${itemTitle || 'an item'}" from "${feedTitleFromFeedObject}"`);
     } catch (error) {
-        console.error('Error sending MarkdownV2 Telegram notification:', error.message);
+        console.error(`✗ Telegram notification failed for "${feedTitleFromFeedObject}":`, error.message);
         try {
             const plainTextMessage = message.replace(/[_*[\]()~`>#+=|{}.!\-]/g, '');
             // Add plain text footer
             const plainFooter = '\n\nSimple RSS Monitor: https://github.com/naviem/SimpleRSSMonitor';
             await bot.sendMessage(chatId, (plainTextMessage + plainFooter).trim());
-            console.log(`Sent Telegram notification (plain text fallback) for "${itemTitle || 'an item'}" from "${feedTitleFromFeedObject}"`);
+            console.log(`✓ Telegram notification sent (plain text): "${itemTitle || 'an item'}" from "${feedTitleFromFeedObject}"`);
         } catch (fallbackError) {
-            console.error('Error sending plain text fallback Telegram notification:', fallbackError.message);
+            console.error(`✗ Telegram notification failed completely for "${feedTitleFromFeedObject}":`, fallbackError.message);
         }
     }
 }

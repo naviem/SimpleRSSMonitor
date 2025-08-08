@@ -193,17 +193,16 @@ async function fetchAndProcessFeed(feed, io, isInitialFetch = false) {
             dbUpdateData.history = JSON.stringify(feed.history);
         }
 
-        if (newItemsFound > 0) {
-            console.log(`${newItemsFound} new item(s) processed for ${feed.title}.`);
-        }
-
         // Record statistics - now tracking feed scans instead of items
         const endTime = Date.now();
-        console.log('Recording stats for feed scan:', feed.id, {
-            scansProcessed: 1, // Each call to this function is one feed scan
-            bytesTransferred: bytesTransferred,
-            processingTimeMs: endTime - startTime
-        });
+        const scanTime = new Date().toLocaleTimeString();
+        
+        // Log scan results in a clean format
+        if (newItemsFound > 0) {
+            console.log(`[${scanTime}] ${feed.title}: ${newItemsFound} new item(s) found and sent to integrations`);
+        } else {
+            console.log(`[${scanTime}] ${feed.title}: No new items found`);
+        }
         
         await statsService.recordFeedStats(feed.id, {
             itemsProcessed: 1, // Changed from processedItems.length to 1 to count scans
