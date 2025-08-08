@@ -47,10 +47,16 @@ async function initializeDatabase() {
             await createTables();
             console.log('Database schema created successfully.');
         } else {
-            console.log('Existing database detected. Running migrations to ensure schema is up to date...');
-            // Run migrations for existing databases to add any missing columns
-            await db.migrate.latest();
-            console.log('Database migrations completed.');
+            console.log('Existing database detected. Database is ready to use.');
+            // For existing databases, check if paused column exists and add it if missing
+            const hasColumn = await db.schema.hasColumn('feeds', 'paused');
+            if (!hasColumn) {
+                console.log('Adding paused column to existing feeds table...');
+                await db.schema.alterTable('feeds', (table) => {
+                    table.boolean('paused').defaultTo(false);
+                });
+                console.log('Paused column added successfully.');
+            }
         }
     } catch (error) {
         console.error('Error initializing database:', error);
