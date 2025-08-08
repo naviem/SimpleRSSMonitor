@@ -16,6 +16,12 @@ async function fetchAndProcessFeed(feed, io, isInitialFetch = false) {
     let dbUpdateData = {};
 
     try {
+        // Respect paused state
+        if (feed.paused) {
+            const scanTime = new Date().toLocaleTimeString();
+            console.log(`[${scanTime}] ${feed.title} is paused. Skipping fetch.`);
+            return;
+        }
         // Get the feed content and calculate bytes
         const response = await fetch(feed.url);
         const feedContent = await response.text();
@@ -282,6 +288,11 @@ function scheduleFeedCheck(feed, io, isInitialFetch = false) {
         // Ensure feed still exists in global array before fetching
         const currentFeed = global.feeds.find(f => f.id === feed.id);
         if (currentFeed) {
+            if (currentFeed.paused) {
+                const scanTime = new Date().toLocaleTimeString();
+                console.log(`[${scanTime}] ${currentFeed.title} is paused. Skipping scheduled fetch.`);
+                return;
+            }
             // Pass false for isInitialFetch for subsequent scheduled checks
             fetchAndProcessFeed(currentFeed, io, false);
         }
@@ -300,6 +311,11 @@ function stopFeedCheck(feedId) {
 function startRssScheduler(io) {
     if (global.feeds && global.feeds.length > 0) {
         global.feeds.forEach(feed => {
+            if (feed.paused) {
+                const scanTime = new Date().toLocaleTimeString();
+                console.log(`[${scanTime}] ${feed.title} is paused. Not starting initial fetch.`);
+                return;
+            }
             const initialDelay = Math.random() * 5000 + 2000; // 2-7 seconds delay
             const treatAsInitial = !feed.history || feed.history.length === 0;
             setTimeout(() => fetchAndProcessFeed(feed, io, treatAsInitial), initialDelay);
@@ -314,6 +330,11 @@ function manageFeedScheduling(feed, io, action = 'schedule') {
     } else if (action === 'unschedule') {
         stopFeedCheck(feed.id);
     } else if (action === 'initial_fetch') {
+        if (feed.paused) {
+            const scanTime = new Date().toLocaleTimeString();
+            console.log(`[${scanTime}] ${feed.title} is paused. Skipping initial fetch.`);
+            return;
+        }
         setTimeout(() => fetchAndProcessFeed(feed, io, true), 1000); // Pass true for isInitialFetch
     }
 }
