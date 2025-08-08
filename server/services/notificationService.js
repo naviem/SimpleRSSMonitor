@@ -60,7 +60,11 @@ async function sendDiscordNotification(webhookUrl, feedTitleFromFeedObject, item
 
     const embed = new EmbedBuilder()
         .setColor(0x0099FF)
-        .setAuthor({ name: String(feedTitleFromFeedObject).substring(0, 250) })
+        .setAuthor({
+            name: String(feedTitleFromFeedObject).substring(0, 250),
+            iconURL: 'https://github.com/naviem.png',
+            url: 'https://github.com/naviem/SimpleRSSMonitor'
+        })
         .setTimestamp(item.isoDate ? new Date(item.isoDate) : new Date()) // Keep timestamp logic
         .setFooter({ text: 'Simple RSS Monitor' });
 
