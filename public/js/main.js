@@ -417,8 +417,10 @@ function handleFeedFieldsDetected(feedUrl, fields, sampleItem, error) {
     
     const fieldsCollapsibleContent = document.querySelector('#editFeedFieldsCheckboxes').closest('.collapsible-content');
     if (fieldsCollapsibleContent) {
-        fieldsCollapsibleContent.style.display = 'block';
-        fieldsCollapsibleContent.previousElementSibling.classList.add('active');
+        // Keep collapsed by default for consistency
+        fieldsCollapsibleContent.style.display = 'none';
+        const header = fieldsCollapsibleContent.previousElementSibling;
+        if (header) header.classList.remove('active');
     }
     
     document.getElementById('editFeedPreviewSection').style.display = 'block';
@@ -877,8 +879,13 @@ function openEditFeedModal(feed) {
     // If we have fields, display the sections. Otherwise, trigger detection.
     const fieldsCollapsibleContent = document.querySelector('#editFeedFieldsCheckboxes').closest('.collapsible-content');
     if (feed.availableFields && feed.availableFields.length > 0) {
-        fieldsCollapsibleContent.style.display = 'block';
-        fieldsCollapsibleContent.previousElementSibling.classList.add('active');
+        // Keep collapsed by default to match other sections
+        if (fieldsCollapsibleContent) {
+            fieldsCollapsibleContent.style.display = 'none';
+            const header = fieldsCollapsibleContent.previousElementSibling;
+            if (header) header.classList.remove('active');
+        }
+        // Still show the preview
         document.getElementById('editFeedPreviewSection').style.display = 'block';
     } else {
         socket.emit('detect_feed_fields', { feedUrl: feed.url });

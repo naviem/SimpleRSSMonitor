@@ -9,7 +9,38 @@
 <body>
     <nav class="navbar">
         <div class="container">
-            <a href="/" class="navbar-brand">SimpleRSSMonitor</a>
+            <a href="/" class="navbar-brand" id="logo">
+                <span class="logo-icon" aria-hidden="true">
+                    <svg width="28" height="28" viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg" style="vertical-align: middle;">
+                        <defs>
+                            <radialGradient id="srssGrad" cx="50%" cy="35%" r="70%">
+                                <stop offset="0%" stop-color="#60A5FA"/>
+                                <stop offset="100%" stop-color="#2563EB"/>
+                            </radialGradient>
+                            <linearGradient id="srssGloss" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stop-color="rgba(255,255,255,0.35)"/>
+                                <stop offset="60%" stop-color="rgba(255,255,255,0)"/>
+                            </linearGradient>
+                            <filter id="srssShadow" x="-20%" y="-20%" width="140%" height="140%">
+                                <feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-opacity="0.35"/>
+                            </filter>
+                            <mask id="srssTopMask">
+                                <rect width="28" height="28" fill="black"/>
+                                <ellipse cx="14" cy="9" rx="12" ry="8" fill="white"/>
+                            </mask>
+                        </defs>
+                        <g filter="url(#srssShadow)">
+                            <circle cx="14" cy="14" r="12" fill="url(#srssGrad)"/>
+                            <circle cx="14" cy="14" r="12" fill="url(#srssGloss)" mask="url(#srssTopMask)"/>
+                            <circle cx="14" cy="14" r="12" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="1"/>
+                            <circle cx="9.2" cy="18.8" r="1.6" fill="#fff"/>
+                            <path class="wave1" d="M9.2 15.4 A 6 6 0 0 1 16.8 22.8" stroke="#fff" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.95" pathLength="120"/>
+                            <path class="wave2" d="M9.2 12 A 9.5 9.5 0 0 1 19.7 22.5" stroke="#fff" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.85" pathLength="120"/>
+                        </g>
+                    </svg>
+                </span>
+                <span class="logo-text">Simple <span class="logo-badge">RSS</span> Monitor</span>
+            </a>
             <ul class="navbar-nav">
                 <li><a href="/">Feeds</a></li>
                 <li><a href="/integrations">Integrations</a></li>
@@ -27,7 +58,7 @@
         <!-- Add/Edit Integration Modal (hidden by default) -->
         <div id="integrationModal" class="modal">
             <div class="modal-content">
-                <span class="close-button">&times;</span>
+                <span class="close-button" id="closeIntegrationModal">&times;</span>
                 <h2 id="integrationModalTitle">Add New Integration</h2>
                 <form id="integrationForm">
                     <input type="hidden" id="integrationId">
@@ -76,6 +107,14 @@
             </table>
         </div>
     </div>
+
+    <footer class="page-footer">
+        <div class="container" style="display:flex;justify-content:flex-end;">
+            <a class="donate-link" href="https://www.paypal.com/donate/?hosted_button_id=T8DEQ4E4CU95N" target="_blank" rel="noopener noreferrer">
+                <i class="fas fa-heart"></i> Support the project
+            </a>
+        </div>
+    </footer>
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="/js/main.js"></script>

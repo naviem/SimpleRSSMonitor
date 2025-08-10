@@ -244,9 +244,9 @@ form select:focus {
 .toggle-switch-container {
     display: flex;
     align-items: center;
-    margin-bottom: 25px; /* Increased bottom margin */
+    margin-bottom: 12px; /* compact spacing */
     background-color: #222b3c; /* Slightly different background for this specific control */
-    padding: 15px;
+    padding: 10px; /* compact */
     border-radius: 6px;
     border: 1px solid #3a455c; /* Subtle border */
 }
@@ -311,9 +311,9 @@ input[type="checkbox"].custom-toggle:checked::before {
 .checkbox-list-container {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px 20px; /* vertical and horizontal gap */
-    margin-bottom: 20px;
-    padding: 10px;
+    gap: 10px 12px; /* vertical and horizontal gap */
+    margin-bottom: 16px;
+    padding: 8px;
     background-color: #222b3c; /* Subtle background for checkbox groups */
     border-radius: 6px;
     border: 1px solid #3a455c;
@@ -324,7 +324,7 @@ input[type="checkbox"].custom-toggle:checked::before {
     align-items: center;
     background-color: #343e50;
     border-radius: 4px;
-    padding: 8px 12px;
+    padding: 6px 10px; /* compact */
     transition: background-color 0.2s ease;
 }
 
@@ -795,8 +795,8 @@ tr[data-paused="true"] .status-icon {
 
 /* Collapsible Sections */
 .collapsible-section {
-    margin-top: 15px;
-    margin-bottom: 10px;
+    margin-top: 8px;
+    margin-bottom: 8px;
     border: none; /* Removed border */
     border-radius: 0;
     overflow: visible; /* Allow for clean look without containing border */
@@ -806,11 +806,11 @@ tr[data-paused="true"] .status-icon {
     display: flex;
     justify-content: space-between; /* Pushes title and icon apart */
     align-items: center;
-    padding: 12px 15px;
+    padding: 8px 12px; /* tighter */
     background-color: #28303e;
     cursor: pointer;
     user-select: none;
-    border-radius: 0;
+    border-radius: 4px; /* soften */
     transition: background-color 0.2s ease, border-radius 0.2s ease;
 }
 
@@ -820,9 +820,9 @@ tr[data-paused="true"] .status-icon {
 }
 
 .header-icon {
-    margin-right: 10px;
-    font-size: 1.1em;
-    width: 20px; /* Ensures alignment */
+    margin-right: 8px;
+    font-size: 1em;
+    width: 16px; /* Ensures alignment */
     text-align: center;
 }
 
@@ -836,7 +836,7 @@ tr[data-paused="true"] .status-icon {
 }
 
 .collapsible-icon {
-    font-size: 1.4em;
+    font-size: 1.2em;
     font-weight: bold;
     transition: transform 0.2s ease-in-out;
 }
@@ -847,15 +847,16 @@ tr[data-paused="true"] .status-icon {
 
 .collapsible-title {
     margin: 0;
-    font-size: 1.1em;
+    font-size: 0.95rem;
     font-weight: 600;
 }
 
 .collapsible-content {
     display: none;
-    padding: 15px;
+    padding: 10px; /* tighter */
     background-color: #384254; /* New background for content */
-    border-radius: 0;
+    border-radius: 4px;
+    border: 1px solid #4A5568;
 }
 
 .url-input-group {
@@ -872,13 +873,13 @@ tr[data-paused="true"] .status-icon {
 .modal-content form input[type="url"],
 .modal-content form input[type="number"] {
     background-color: #28303e;
-    border: none;
-    border-radius: 0;
+    border: 1px solid #4A5568; /* stronger edge */
+    border-radius: 4px;
     width: 100%;
-    padding: 12px 15px;
+    padding: 9px 12px;
     box-sizing: border-box; /* Ensures padding doesn't add to width */
     font-family: inherit; /* Ensure font matches */
-    font-size: 1.1em; /* Match collapsible header title */
+    font-size: 0.95rem; /* compact */
     color: #cbd5e0; /* Light gray for readability */
 }
 
@@ -901,14 +902,14 @@ tr[data-paused="true"] .status-icon {
     align-items: center;
     gap: 12px;
     text-decoration: none;
-    font-size: 1.7rem;
+    font-size: 1.6rem;
     font-weight: 700;
-    letter-spacing: -1px;
+    letter-spacing: -0.5px;
     color: #E2E8F0;
     transition: color 0.2s;
 }
 #logo:hover {
-    color: #60A5FA;
+    color: #E5F0FF;
 }
 .logo-icon {
     display: flex;
@@ -921,17 +922,23 @@ tr[data-paused="true"] .status-icon {
 .logo-text {
     font-family: 'Segoe UI', 'Inter', 'Roboto', Arial, sans-serif;
     font-weight: 700;
-    font-size: 1.25em;
-    letter-spacing: -0.5px;
+    font-size: 1.2em;
+    letter-spacing: -0.25px;
     color: #E2E8F0;
     display: flex;
     align-items: baseline;
     gap: 2px;
 }
-.logo-accent {
-    color: #3B82F6;
-    font-weight: 900;
-    letter-spacing: 0.5px;
+/* New pill badge for RSS */
+.logo-badge {
+    background: linear-gradient(180deg, #3B82F6, #2563EB);
+    color: #fff;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 0.72em;
+    line-height: 1;
+    font-weight: 800;
+    letter-spacing: 0.6px;
 }
 @media (max-width: 600px) {
     #logo {
@@ -943,9 +950,16 @@ tr[data-paused="true"] .status-icon {
         height: 20px;
     }
     .logo-text {
-        font-size: 1em;
+        font-size: 1.05em;
     }
 }
+
+/* Animate RSS waves in the logo on hover (CSS-only) */
+#logo .logo-icon .wave1,
+#logo .logo-icon .wave2 { stroke-dasharray: 120; stroke-dashoffset: 120; }
+#logo:hover .logo-icon .wave1 { animation: wave-draw 0.9s ease forwards; }
+#logo:hover .logo-icon .wave2 { animation: wave-draw 1.1s ease 0.08s forwards; }
+@keyframes wave-draw { to { stroke-dashoffset: 0; } }
 
 /* Statistics Page Styles */
 .stats-container {
@@ -1109,3 +1123,154 @@ tr[data-paused="true"] .status-icon {
     font-size: 1.1rem;
     margin: 8px 0;
 } 
+
+/* Footer donate button */
+.page-footer {
+    margin-top: 24px;
+    padding: 16px 0 32px;
+    border-top: 1px solid #4A5568;
+}
+.donate-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #4A5568;
+    color: #E2E8F0;
+    text-decoration: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-weight: 600;
+}
+.donate-link:hover { background: #2D3748; }
+.donate-link i { width: 14px; text-align: center; }
+
+/* ==============================
+   Keyword Route Modal (polish)
+   ============================== */
+#keywordRouteModal .modal-content {
+    background-color: #2D3748;
+    border: 1px solid #4A5568;
+    border-radius: 8px;
+    max-width: 560px;
+    padding: 20px 20px 18px;
+}
+#keywordRouteModal h2 {
+    margin: 0 0 10px;
+    font-size: 1.25rem;
+    color: #E2E8F0;
+}
+#keywordRouteModal .modal-explanation {
+    color: #A0AEC0;
+    font-size: 0.95rem;
+    margin-bottom: 12px;
+}
+#keywordRouteModal .modal-info-box {
+    background: #223049;
+    color: #E2E8F0;
+    border-left: 4px solid #3B82F6;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+    border-radius: 6px;
+    font-size: 0.95rem;
+}
+#keywordRouteModal label {
+    color: #CBD5E0;
+    font-weight: 600;
+    margin-bottom: 6px;
+    display: inline-block;
+}
+#keywordRouteModal input[type="text"],
+#keywordRouteModal select,
+#keywordRouteModal textarea {
+    width: 100%;
+    background: #28303e;
+    color: #E2E8F0;
+    border: 1px solid #4A5568;
+    border-radius: 4px;
+    padding: 9px 12px;
+    font-size: 0.95rem;
+}
+#keywordRouteModal textarea {
+    min-height: 90px;
+    resize: vertical;
+}
+#keywordRouteModal .keyword-options {
+    gap: 16px;
+    margin: 8px 0 10px;
+}
+#keywordRouteModal .dark-multiselect {
+    background: #222b3c;
+    border: 1px solid #4A5568;
+    color: #E2E8F0;
+    border-radius: 4px;
+    padding: 6px 8px;
+}
+#keywordRouteModal .field-select-hint {
+    color: #A0AEC0;
+    font-size: 0.9rem;
+    margin: 2px 0 8px;
+}
+#keywordRouteModal .test-keyword-section {
+    background: #2D3748;
+    border: 1px solid #4A5568;
+    border-radius: 8px;
+    padding: 12px;
+    margin-top: 12px;
+}
+#keywordRouteModal .test-keyword-section h4 {
+    margin: 0 0 6px;
+    color: #A0AEC0;
+}
+#keywordRouteModal .test-keyword-row {
+    gap: 10px;
+}
+#keywordRouteModal #testKeywordBtn {
+    min-height: auto;
+    padding: 10px 14px;
+}
+#keywordRouteModal #testResult {
+    margin-top: 8px;
+}
+#testResult.success { color: #22c55e; }
+#testResult.error { color: #ef4444; }
+
+/* ==============================
+   Integrations Modal (polish)
+   ============================== */
+#integrationModal .modal-content {
+    background-color: #2D3748;
+    border: 1px solid #4A5568;
+    border-radius: 8px;
+    max-width: 560px;
+    padding: 20px 20px 18px;
+}
+#integrationModal h2 {
+    margin: 0 0 10px;
+    font-size: 1.25rem;
+    color: #E2E8F0;
+}
+#integrationModal form > div { margin-bottom: 12px; }
+#integrationModal label {
+    color: #CBD5E0;
+    font-weight: 600;
+    margin-bottom: 6px;
+    display: inline-block;
+}
+#integrationModal input[type="text"],
+#integrationModal input[type="url"],
+#integrationModal select {
+    width: 100%;
+    background: #28303e;
+    color: #E2E8F0;
+    border: 1px solid #4A5568;
+    border-radius: 4px;
+    padding: 9px 12px;
+    font-size: 0.95rem;
+}
+#integrationModal input:focus,
+#integrationModal select:focus {
+    outline: none;
+    border-color: #3B82F6;
+    box-shadow: 0 0 0 2px rgba(59,130,246,0.30);
+}
+#integrationModal .btn-primary { margin-top: 6px; }
