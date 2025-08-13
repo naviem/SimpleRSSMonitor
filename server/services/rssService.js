@@ -59,12 +59,36 @@ function getStableItemIdentifier(item) {
 	return crypto.createHash('sha1').update(basis).digest('hex');
 }
 
+function normalizeExistingHistoryEntries(history) {
+    if (!Array.isArray(history)) return [];
+    const out = [];
+    const seen = new Set();
+    for (const entry of history) {
+        if (!entry || typeof entry !== 'string') continue;
+        const decoded = decodeHtmlEntities(entry);
+        const maybeUrl = decoded.startsWith('http://') || decoded.startsWith('https://');
+        const norm = maybeUrl ? normalizeUrl(decoded) : decoded.trim();
+        if (!seen.has(norm)) {
+            seen.add(norm);
+            out.push(norm);
+        }
+    }
+    return out;
+}
+
 async function fetchAndProcessFeed(feed, io, isInitialFetch = false) {
     const startTime = Date.now();
     let feedObject;
     let dbUpdateData = {};
 
     try {
+        // Normalize any previously stored history entries (handles pre-change raw IDs)
+        const normalizedHistory = normalizeExistingHistoryEntries(feed.history || []);
+        let historyWasNormalized = false;
+        if (JSON.stringify(normalizedHistory) !== JSON.stringify(feed.history || [])) {
+            feed.history = normalizedHistory;
+            historyWasNormalized = true;
+        }
         // Respect paused state
         if (feed.paused) {
             const scanTime = new Date().toLocaleTimeString();
@@ -237,7 +261,7 @@ async function fetchAndProcessFeed(feed, io, isInitialFetch = false) {
             }
         }
 
-        if (feed.history.length !== originalHistoryLength) {
+        if (feed.history.length !== originalHistoryLength || historyWasNormalized) {
             dbUpdateData.history = JSON.stringify(feed.history);
         }
 
