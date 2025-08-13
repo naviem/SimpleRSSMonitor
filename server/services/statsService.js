@@ -129,37 +129,22 @@ async function getFeedSummary(range) {
     // Get all feeds (for title)
     const feeds = await db('feeds').select('id', 'title', 'url');
     console.log('Found feeds:', feeds);
-    
-    // Build time filter
-    const now = new Date();
-    let since;
-    if (range === 'daily') {
-        // Start of today in local time
-        since = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    } else if (range === 'weekly') {
-        // 7 days ago in local time
-        since = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
-    } else if (range === 'monthly') {
-        // Start of this month in local time
-        since = new Date(now.getFullYear(), now.getMonth(), 1);
-    } else {
-        since = null;
-    }
-    
-    console.log('Time filter - since:', since ? since.toISOString() : 'null');
-    
+
     // Query stats
     let statsQuery = db('feed_stats')
         .select('feed_id')
         .sum({ total_bytes: 'bytes_transferred' })
         .count({ scan_count: 'id' })
         .groupBy('feed_id');
-    
-    if (since) {
-        // Use a more reliable date comparison for SQLite
-        const dateString = since.toISOString().split('T')[0]; // YYYY-MM-DD format
-        console.log('Using date filter:', dateString);
-        statsQuery = statsQuery.whereRaw('DATE(timestamp) >= ?', [dateString]);
+
+    // Apply localtime boundaries so 'daily/weekly/monthly' use server local midnight
+    if (range === 'daily') {
+        statsQuery = statsQuery.whereRaw("DATE(timestamp, 'localtime') = DATE('now','localtime')");
+    } else if (range === 'weekly') {
+        // Today plus previous 6 days (7 total)
+        statsQuery = statsQuery.whereRaw("DATE(timestamp, 'localtime') >= DATE('now','localtime','-6 days')");
+    } else if (range === 'monthly') {
+        statsQuery = statsQuery.whereRaw("DATE(timestamp, 'localtime') >= DATE('now','localtime','start of month')");
     }
     
     const stats = await statsQuery;

@@ -1,5 +1,6 @@
 const Parser = require('rss-parser');
 const parser = new Parser();
+const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 const { getFieldValue, notifyIntegrationsForFeed } = require('./notificationService');
 const { db } = require('./databaseService');
@@ -9,6 +10,54 @@ const statsService = require('./statsService');
 
 // Store for setTimeout IDs, so we can clear them if a feed is updated or deleted
 const feedTimers = {}; 
+
+// --- Identifier normalization helpers ---
+function decodeHtmlEntities(text) {
+	if (!text || typeof text !== 'string') return text;
+	return text
+		.replace(/&amp;/g, '&')
+		.replace(/&quot;/g, '"')
+		.replace(/&#39;|&apos;/g, "'")
+		.replace(/&lt;/g, '<')
+		.replace(/&gt;/g, '>');
+}
+
+function normalizeUrl(urlString) {
+	try {
+		const decoded = decodeHtmlEntities(urlString).trim();
+		const u = new URL(decoded);
+		u.host = u.host.toLowerCase();
+		// Remove common tracking params and sort remaining for stability
+		const params = new URLSearchParams(u.search);
+		const tracking = new Set(['utm_source','utm_medium','utm_campaign','utm_content','utm_term','fbclid','gclid','mc_cid','mc_eid','ref']);
+		for (const key of Array.from(params.keys())) {
+			if (tracking.has(key)) params.delete(key);
+		}
+		// Sort params
+		const entries = Array.from(params.entries()).sort(([a],[b]) => a.localeCompare(b));
+		const sorted = new URLSearchParams(entries);
+		u.search = sorted.toString() ? `?${sorted.toString()}` : '';
+		// Normalize trailing slash (keep only if path is just '/')
+		if (u.pathname.length > 1 && u.pathname.endsWith('/')) {
+			u.pathname = u.pathname.replace(/\/+$/, '');
+		}
+		return u.toString();
+	} catch (e) {
+		return urlString;
+	}
+}
+
+function getStableItemIdentifier(item) {
+	// Prefer Atom/RSS id, else normalized link, else hash of title+date
+	if (item && typeof item.id === 'string' && item.id.trim()) {
+		return normalizeUrl(item.id);
+	}
+	if (item && typeof item.link === 'string' && item.link.trim()) {
+		return normalizeUrl(item.link);
+	}
+	const basis = `${item && item.title ? String(item.title) : ''}|${item && (item.isoDate || item.pubDate) ? String(item.isoDate || item.pubDate) : ''}`;
+	return crypto.createHash('sha1').update(basis).digest('hex');
+}
 
 async function fetchAndProcessFeed(feed, io, isInitialFetch = false) {
     const startTime = Date.now();
@@ -78,65 +127,58 @@ async function fetchAndProcessFeed(feed, io, isInitialFetch = false) {
 
         if (isInitialFetch) {
             console.log(`Initial fetch for ${feed.title}. Processing up to 2 newest items for notification.`);
-            
-            // First, add ALL items to history silently (to prevent future notifications)
-            for (const item of itemsToProcessForHistory) {
-                const itemIdentifier = item.guid || item.link || item.title;
-                if (!itemIdentifier) continue;
-                if (!feed.history.includes(itemIdentifier)) {
-                    feed.history.push(itemIdentifier);
-                }
-            }
-            
-            // Then, send notifications for only the 2 newest items
+
+            const existingIds = new Set(feed.history || []);
+
+            // Notify up to 2 newest items that are not already in history
             const newestTwoItems = itemsToProcessForHistory.slice(0, 2);
             let notificationsSent = 0;
-            
             for (const item of newestTwoItems) {
-                if (notificationsSent >= 2) break; // Safety check
-                
-                const itemIdentifier = item.guid || item.link || item.title;
-                if (!itemIdentifier) continue;
+                if (notificationsSent >= 2) break;
+                const stableId = getStableItemIdentifier(item);
+                if (!existingIds.has(stableId)) {
+                    // Create content string for keyword matching
+                    const content = [
+                        item.title,
+                        item.content,
+                        item.description,
+                        item.summary
+                    ].filter(Boolean).join(' ');
 
-                console.log(`Sending initial notification for ${feed.title}: ${item.title}`);
-                
-                // Create content string for keyword matching
-                const content = [
-                    item.title,
-                    item.content,
-                    item.description,
-                    item.summary
-                ].filter(Boolean).join(' ');
+                    const matchingIntegrationIds = keywordRouteService.matchKeywords(content, keywordRoutes);
+                    const targetIntegrationIds = matchingIntegrationIds.length > 0 
+                        ? matchingIntegrationIds 
+                        : feed.associatedIntegrations;
 
-                // Get matching integration IDs
-                const matchingIntegrationIds = keywordRouteService.matchKeywords(content, keywordRoutes);
-                
-                // Use matching integrations or fall back to default
-                const targetIntegrationIds = matchingIntegrationIds.length > 0 
-                    ? matchingIntegrationIds 
-                    : feed.associatedIntegrations;
+                    const originalIntegrations = feed.associatedIntegrations;
+                    feed.associatedIntegrations = targetIntegrationIds;
+                    notifyIntegrationsForFeed(feed, item);
+                    feed.associatedIntegrations = originalIntegrations;
 
-                // Update feed's associated integrations temporarily for this notification
-                const originalIntegrations = feed.associatedIntegrations;
-                feed.associatedIntegrations = targetIntegrationIds;
+                    feed.history.push(stableId);
+                    existingIds.add(stableId);
+                    newItemsFound++;
+                    notificationsSent++;
 
-                notifyIntegrationsForFeed(feed, item);
-                
-                // Restore original integrations
-                feed.associatedIntegrations = originalIntegrations;
-
-                newItemsFound++;
-                notificationsSent++;
-                
-                if (io && io.emit) {
-                    io.emit('new_feed_item', { 
-                        feedId: feed.id,
-                        feedTitle: feed.title,
-                        item: { title: item.title, link: item.link, guid: item.guid }
-                    });
+                    if (io && io.emit) {
+                        io.emit('new_feed_item', { 
+                            feedId: feed.id,
+                            feedTitle: feed.title,
+                            item: { title: item.title, link: item.link, guid: item.guid }
+                        });
+                    }
                 }
             }
-            
+
+            // Add the rest silently to history to prevent future notifications
+            for (const item of itemsToProcessForHistory) {
+                const stableId = getStableItemIdentifier(item);
+                if (!existingIds.has(stableId)) {
+                    feed.history.push(stableId);
+                    existingIds.add(stableId);
+                }
+            }
+
             if (feed.history.length > 200) { // Cap history
                 feed.history.splice(0, feed.history.length - 200);
             }
@@ -145,7 +187,7 @@ async function fetchAndProcessFeed(feed, io, isInitialFetch = false) {
             // itemsToProcess (original order, but processed) for notifying oldest first
             const itemsInOriginalOrderButProcessed = feedObject.items.map(item => processFeedItem(item, feed.id));
             for (const item of itemsInOriginalOrderButProcessed.reverse()) { // item here is already processed
-                const itemIdentifier = item.guid || item.link || item.title; 
+                const itemIdentifier = getStableItemIdentifier(item);
                 if (!itemIdentifier) {
                     console.warn(`Item in feed ${feed.title} lacks guid, link, or title. Skipping.`);
                     continue;
